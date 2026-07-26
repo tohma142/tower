@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  # This job name is what branch protection requires on main. Renaming it silently
+  # detaches the protection rule, so don't.
+  check:
+    name: check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      # Advisory only, by explicit decision: coverage is reported so the trend stays
+      # visible, but it never fails the build and is not part of `npm run check`.
+      - name: Coverage (advisory)
+        run: npm run test:coverage
+        continue-on-error: true
