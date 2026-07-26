@@ -8,7 +8,7 @@
  * into a sentence is the one part of this file worth testing.
  */
 
-import { TOWER_TYPES } from '../../shared/constants.js';
+import { ENEMY_TYPES, TOWER_TYPES } from '../../shared/constants.js';
 
 /**
  * Turn a server event into a line for the log, or null if it is not worth showing.
@@ -25,10 +25,16 @@ export function describeEvent(event, playerId = null) {
       return `Wave ${event.wave} incoming`;
 
     case 'waveCleared':
-      return `Wave ${event.wave} cleared`;
+      // The bonus is a real part of the economy — a player who cannot see it arriving
+      // has no way to plan around it.
+      return event.bonus > 0
+        ? `Wave ${event.wave} cleared (+${event.bonus} fish each)`
+        : `Wave ${event.wave} cleared`;
 
     case 'leak':
-      return `A ${event.enemyType} reached the iceberg (-${event.damage})`;
+      // The event carries the type id; the player should see the creature's name. Same
+      // rule as the rejection reasons — internal vocabulary never reaches the screen.
+      return `A ${ENEMY_TYPES[event.enemyType]?.name ?? event.enemyType} reached the iceberg (-${event.damage})`;
 
     case 'gameOver':
       return event.outcome === 'win'

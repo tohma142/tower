@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { describeEvent } from '../../src/client/render/hud.js';
+import { ENEMY_TYPES } from '../../src/shared/constants.js';
 import { REJECT_REASON } from '../../src/shared/protocol.js';
 
 /**
@@ -26,11 +27,32 @@ describe('describeEvent', () => {
     assert.match(line({ kind: 'waveCleared', wave: 4 }), /Wave 4 cleared/);
   });
 
+  it('shows the wave-clear payment, since players plan around it', () => {
+    assert.match(line({ kind: 'waveCleared', wave: 4, bonus: 60 }), /\+60 fish/);
+  });
+
   it('reports a leak with what got through and what it cost', () => {
     const text = line({ kind: 'leak', enemyType: 'brute', damage: 10 });
 
-    assert.match(text, /brute/);
+    assert.match(text, /Polar Bear/, 'players see the creature, not the type id');
     assert.match(text, /10/);
+  });
+
+  it('names every enemy by its display name, never its type id', () => {
+    // Same rule as the rejection reasons: internal vocabulary must not reach the screen.
+    // "A walker reached the iceberg" is a bug report, not a game.
+    for (const [id, spec] of Object.entries(ENEMY_TYPES)) {
+      const text = line({ kind: 'leak', enemyType: id, damage: 1 });
+
+      assert.match(text, new RegExp(spec.name), `${id} should be shown as "${spec.name}"`);
+      assert.equal(text.includes(id), false, `${id} leaked its type id into the UI`);
+    }
+  });
+
+  it('falls back to the raw id for an enemy it has never heard of', () => {
+    // A newer server could add a creature this client has no name for; showing
+    // something beats showing "undefined".
+    assert.match(line({ kind: 'leak', enemyType: 'kraken', damage: 3 }), /kraken/);
   });
 
   it('words victory and defeat differently, and names the wave lost on', () => {
