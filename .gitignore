@@ -1,4 +1,9 @@
 node_modules/
+
+# Personal Claude Code settings. Workflow preferences, not team convention —
+# and this repo is public.
+.claude/settings.local.json
+
 .env
 .env.local
 *.log
