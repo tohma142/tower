@@ -131,7 +131,10 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
  */
 export const CLIENT_MSG_SPEC = Object.freeze({
   [CLIENT_MSG.HELLO]: Object.freeze({
-    roomCode: str(ROOM_CODE_LENGTH, ROOM_CODE_LENGTH, ROOM_CODE_PATTERN),
+    // Absent means "make me a room". A player landing on `/` has no code yet; the
+    // server allocates one and hands it back in the welcome, and the client rewrites
+    // its URL to the shareable form.
+    roomCode: optional(str(ROOM_CODE_LENGTH, ROOM_CODE_LENGTH, ROOM_CODE_PATTERN)),
     seatToken: optional(str(36, 36, UUID_PATTERN)),
   }),
   [CLIENT_MSG.PLACE]: Object.freeze({

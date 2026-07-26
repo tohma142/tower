@@ -106,6 +106,11 @@ describe('validateClientMessage — place', () => {
 });
 
 describe('validateClientMessage — hello', () => {
+  it('accepts a hello with no room code, meaning "make me a room"', () => {
+    // A player landing on `/` has no code yet. The server allocates one and returns it.
+    assert.deepEqual(accepts({ type: CLIENT_MSG.HELLO }), { type: 'hello' });
+  });
+
   it('accepts a room code alone', () => {
     const value = accepts({ type: CLIENT_MSG.HELLO, roomCode: 'BCDFG' });
     assert.deepEqual(value, { type: 'hello', roomCode: 'BCDFG' });
