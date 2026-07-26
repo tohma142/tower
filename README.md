@@ -9,8 +9,35 @@ somebody is connected to it, and then it is gone.
 
 ## Status
 
-Early scaffold. The quality gates, config, and logging are in place; the game itself is
-not built yet. See the implementation order below for what lands next.
+Playable. Up to four people share a board across fifteen waves, with spectators, seat
+reconnection, and a tuned difficulty curve.
+
+Not built, and deliberately so: tower upgrades and selling, flying or armoured enemies,
+a boss, sound, more than one map, difficulty selection, and any form of persistence.
+
+## How to play
+
+Open the page and you get a room. Send someone the URL and they join the same board.
+
+Every player has their own fish, but **income is shared** — each kill pays every player
+the full bounty, and clearing a wave pays everyone a bonus. That is what makes it
+co-operative rather than parallel: you are spending separate wallets on one defence.
+
+Waves only start when **every connected player readies up**, so the sidebar tells you
+who the room is waiting on. Enemies that reach the iceberg take health equal to their
+own strength, so leaking a Polar Bear costs five times what an Arctic Fox does.
+
+| | Cost | Range | Damage | Rate |
+| --- | --- | --- | --- | --- |
+| **Pistol** | 50 | 3 | 2 | 3.0/s |
+| **Sniper** | 120 | 7 | 12 | 0.5/s |
+| **Bomber** | 150 | 4 | 6 splash | 0.7/s |
+
+Keyboard: `1`–`3` pick a penguin, `Esc` clears the selection, `Space` readies.
+
+Placement is most of the game. Tiles beside a corner cover far more path than tiles
+beside a straight, and the difference decides runs — a build that scans left-to-right
+loses games that coverage-ranked placement wins comfortably.
 
 ## Requirements
 
