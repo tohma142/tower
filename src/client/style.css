@@ -1,0 +1,261 @@
+/*
+ * Monochrome, to match the sprites. Black, white, and three greys — the same palette
+ * the pixel art uses, so the HUD and the board look like one thing rather than a game
+ * inside a website.
+ */
+
+:root {
+  color-scheme: dark;
+  --bg: #0e0e0e;
+  --panel: #161616;
+  --line: #2a2a2a;
+  --dim: #8a8a8a;
+  --text: #e8e8e8;
+  --bright: #ffffff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+#app {
+  display: grid;
+  grid-template-areas:
+    'top top'
+    'stage side';
+  grid-template-columns: minmax(0, 1fr) 260px;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 100vh;
+  gap: 1px;
+  background: var(--line);
+}
+
+#topbar {
+  grid-area: top;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0.6rem 1rem;
+  background: var(--panel);
+}
+
+#topbar h1 {
+  margin: 0;
+  font-size: 1rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+#room {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+#room code {
+  font-size: 1.1rem;
+  letter-spacing: 0.15em;
+  color: var(--bright);
+}
+
+#status {
+  margin-left: auto;
+  color: var(--dim);
+}
+
+#status[data-status='online']::before { content: '● '; color: var(--bright); }
+#status[data-status='connecting']::before { content: '○ '; }
+#status[data-status='offline']::before { content: '○ '; color: var(--dim); }
+
+#stage {
+  grid-area: stage;
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: var(--bg);
+  min-width: 0;
+}
+
+#board {
+  max-width: 100%;
+  max-height: calc(100vh - 6rem);
+  /* The art is drawn at an integer scale; letting the browser smooth it on display
+     would undo exactly that. */
+  image-rendering: pixelated;
+  cursor: crosshair;
+  background: #111;
+}
+
+#sidebar {
+  grid-area: side;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--line);
+  overflow-y: auto;
+}
+
+#sidebar section {
+  background: var(--panel);
+  padding: 0.85rem 1rem;
+}
+
+#sidebar h2 {
+  margin: 0 0 0.6rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.label {
+  color: var(--dim);
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.value {
+  color: var(--bright);
+}
+
+.stat {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.stat:last-child { margin-bottom: 0; }
+
+.bar {
+  flex: 1;
+  height: 8px;
+  background: #000;
+  border: 1px solid var(--line);
+}
+
+#iceberg-fill {
+  height: 100%;
+  width: 100%;
+  background: var(--text);
+  transition: width 120ms linear;
+}
+
+button {
+  font: inherit;
+  color: var(--text);
+  background: #1e1e1e;
+  border: 1px solid var(--line);
+  padding: 0.35rem 0.7rem;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) { background: #2a2a2a; color: var(--bright); }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+#shop-buttons {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.shop-button {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  text-align: left;
+}
+
+.shop-button[aria-pressed='true'] {
+  background: var(--text);
+  color: #0e0e0e;
+  border-color: var(--text);
+}
+
+.shop-button .cost { color: inherit; opacity: 0.75; }
+
+#shop-hint, #waiting-on {
+  margin: 0.6rem 0 0;
+  color: var(--dim);
+  font-size: 0.78rem;
+}
+
+#roster {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.3rem;
+}
+
+#roster li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+#roster li[data-connected='false'] { color: var(--dim); text-decoration: line-through; }
+#roster li[data-you='true'] .who::after { content: ' (you)'; color: var(--dim); }
+#roster .ready { color: var(--bright); }
+
+#ready {
+  width: 100%;
+  padding: 0.6rem;
+}
+
+#ready[aria-pressed='true'] {
+  background: var(--text);
+  color: #0e0e0e;
+  border-color: var(--text);
+}
+
+#log { flex: 1; min-height: 6rem; }
+
+#event-log {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.2rem;
+  font-size: 0.78rem;
+  color: var(--dim);
+}
+
+#event-log li:first-child { color: var(--text); }
+
+#overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(10, 10, 10, 0.82);
+}
+
+#overlay[hidden] { display: none; }
+
+#overlay-card {
+  text-align: center;
+  padding: 1.5rem 2rem;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  max-width: 34ch;
+}
+
+#overlay-card h2 { margin: 0 0 0.5rem; letter-spacing: 0.1em; }
+#overlay-card p { margin: 0 0 1rem; color: var(--dim); }
+
+@media (max-width: 900px) {
+  #app {
+    grid-template-areas: 'top' 'stage' 'side';
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+  }
+}

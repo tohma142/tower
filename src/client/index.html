@@ -4,27 +4,72 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Tower — Penguin Defense</title>
-    <style>
-      :root { color-scheme: dark; }
-      body {
-        margin: 0;
-        min-height: 100vh;
-        display: grid;
-        place-items: center;
-        background: #111;
-        color: #eee;
-        font: 16px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
-        text-align: center;
-      }
-      code { background: #222; padding: 0.1em 0.4em; border-radius: 3px; }
-      p { max-width: 40ch; }
-    </style>
+    <link rel="stylesheet" href="/src/client/style.css" />
   </head>
   <body>
-    <main>
-      <h1>Tower</h1>
-      <p>The server is running. The canvas client is not built yet.</p>
-      <p>Until it lands, the game is reachable over the WebSocket endpoint at <code>/ws</code>.</p>
-    </main>
+    <div id="app">
+      <header id="topbar">
+        <h1>Tower</h1>
+        <div id="room">
+          <span class="label">Room</span>
+          <code id="room-code">…</code>
+          <button id="copy-link" type="button" title="Copy the invite link">Copy link</button>
+        </div>
+        <div id="status" data-status="connecting">Connecting…</div>
+      </header>
+
+      <main id="stage">
+        <canvas id="board" width="960" height="576" aria-label="Game board"></canvas>
+
+        <div id="overlay" hidden>
+          <div id="overlay-card">
+            <h2 id="overlay-title"></h2>
+            <p id="overlay-body"></p>
+            <button id="overlay-action" type="button" hidden></button>
+          </div>
+        </div>
+      </main>
+
+      <aside id="sidebar">
+        <section id="vitals">
+          <div class="stat">
+            <span class="label">Iceberg</span>
+            <div class="bar"><div id="iceberg-fill"></div></div>
+            <span id="iceberg-text" class="value">100 / 100</span>
+          </div>
+          <div class="stat">
+            <span class="label">Wave</span>
+            <span id="wave-text" class="value">—</span>
+          </div>
+          <div class="stat">
+            <span class="label">Your fish</span>
+            <span id="fish-text" class="value">—</span>
+          </div>
+        </section>
+
+        <section id="shop">
+          <h2>Penguins</h2>
+          <div id="shop-buttons"></div>
+          <p id="shop-hint">Pick a penguin, then click a tile.</p>
+        </section>
+
+        <section id="team">
+          <h2>Team</h2>
+          <ul id="roster"></ul>
+          <p id="waiting-on"></p>
+        </section>
+
+        <section id="actions">
+          <button id="ready" type="button">Ready</button>
+        </section>
+
+        <section id="log">
+          <h2>Events</h2>
+          <ul id="event-log"></ul>
+        </section>
+      </aside>
+    </div>
+
+    <script type="module" src="/src/client/main.js"></script>
   </body>
 </html>
