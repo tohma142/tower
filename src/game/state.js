@@ -17,8 +17,10 @@ import {
   STARTING_FISH,
   TOTAL_WAVES,
   hpScaleFor,
+  waveClearBonus,
 } from '../shared/constants.js';
 
+import { payBountyToAll } from './economy.js';
 import { advanceEnemies, removeDeadEnemies, spawnEnemy } from './enemies.js';
 import { advanceProjectiles } from './projectiles.js';
 import { updateTowers } from './towers.js';
@@ -42,6 +44,7 @@ import { buildSpawnSchedule, waveEnemyCount } from './waves.js';
  * @property {any} [icebergHp]
  * @property {any} [wave]
  * @property {any} [outcome]
+ * @property {any} [bonus] Fish paid to each player for clearing a wave.
  */
 
 /**
@@ -333,7 +336,15 @@ export function tick(state, dtMs) {
     // whole build phase, since the tick returns early outside a wave.
     state.projectiles = [];
     state.phase = PHASE.BUILD;
-    state.events.push({ kind: 'waveCleared', wave: state.wave });
+
+    // Pay for surviving, not just for killing. Income from kills alone compounds in
+    // both directions: a team that opens badly cannot afford more penguins, so it kills
+    // less, so it earns less, and by wave 6 the game is decided. This payment decouples
+    // recovery from kill throughput.
+    const bonus = waveClearBonus(state.wave);
+    payBountyToAll(state, bonus);
+
+    state.events.push({ kind: 'waveCleared', wave: state.wave, bonus });
   }
 }
 

@@ -95,10 +95,13 @@ describe('hpScaleFor', () => {
     assert.equal(hpScaleFor(1), 1);
   });
 
-  it('scales up with headcount, because income is shared', () => {
-    assert.equal(hpScaleFor(2), 1.6);
-    assert.ok(Math.abs(hpScaleFor(3) - 2.2) < 1e-9);
-    assert.ok(Math.abs(hpScaleFor(MAX_PLAYERS) - 2.8) < 1e-9);
+  it('scales exactly linearly with headcount, because income does too', () => {
+    // Income is shared and wallets are per-player, so a team's purchasing power scales
+    // linearly with headcount. Enemies must scale the same way or bigger teams get a
+    // structural advantage — which is exactly what the earlier 1 + 0.6(n-1) produced.
+    assert.equal(hpScaleFor(2), 2);
+    assert.equal(hpScaleFor(3), 3);
+    assert.equal(hpScaleFor(MAX_PLAYERS), MAX_PLAYERS);
   });
 
   it('is monotonic across the supported range', () => {

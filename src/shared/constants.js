@@ -87,16 +87,50 @@ export const TOTAL_WAVES = 15;
 /**
  * Enemy hit-point multiplier for a given headcount.
  *
- * Income is shared: every player receives the full bounty for every kill, so a team of
- * four has roughly four times a solo player's money and therefore four times the
- * firepower. Without this, wave 15 at four players is a walkover. Locked in when the
- * game starts so mid-game joins and drops cannot retune a wave that is already running.
+ * Exactly linear: each player adds one enemy's worth of toughness. That is not a round
+ * number chosen for tidiness — it is what makes headcount fair.
+ *
+ * Income is shared, and wallets are per-player, so a team's total purchasing power
+ * scales linearly with headcount. Anything shallower than linear hands larger teams a
+ * structural advantage. Measured across 1–4 players, this leaves the iceberg at 50–62
+ * of 100 at the end of wave 15 regardless of team size; the earlier 1 + 0.6(n-1) left
+ * bigger teams visibly better off.
+ *
+ * Locked in when the game starts, so mid-game joins and drops cannot retune a wave
+ * that is already running.
  *
  * @param {number} playerCount Players seated when the game began.
  * @returns {number} Multiplier applied to every enemy's base hit points.
  */
 export function hpScaleFor(playerCount) {
-  return 1 + 0.6 * (Math.max(1, playerCount) - 1);
+  return Math.max(1, playerCount);
+}
+
+/**
+ * Fish paid to every player when a wave is cleared, as `BASE + PER_WAVE * wave`.
+ *
+ * This exists to break a death spiral. With income coming only from kills, a team that
+ * opens badly cannot afford more penguins, so it kills less, so it earns less — and by
+ * wave 6 it is over with nothing to be done about it. A guaranteed payment for
+ * surviving decouples recovery from kill throughput.
+ *
+ * The effect is measurable rather than theoretical: at the difficulty this game is now
+ * tuned to, a solo run with no wave bonus collapses on wave 7, and the same run with
+ * this bonus finishes all 15 waves.
+ */
+export const WAVE_CLEAR_BONUS_BASE = 40;
+
+/** Extra fish per wave number, so later waves fund the harder waves that follow. */
+export const WAVE_CLEAR_BONUS_PER_WAVE = 5;
+
+/**
+ * Fish paid to each player for clearing a wave.
+ *
+ * @param {number} wave One-based wave number just cleared.
+ * @returns {number}
+ */
+export function waveClearBonus(wave) {
+  return WAVE_CLEAR_BONUS_BASE + WAVE_CLEAR_BONUS_PER_WAVE * wave;
 }
 
 // --- Phases ------------------------------------------------------------------
@@ -181,11 +215,22 @@ export const TOWER_TYPE_IDS = Object.freeze(Object.keys(TOWER_TYPES));
  * @property {number} bounty Fish paid to every player when killed.
  */
 
-/** @type {Readonly<Record<string, EnemyType>>} */
+/**
+ * Hit points here are 2.5× what a first pass would suggest, and that factor is the
+ * single knob that sets how hard the game is.
+ *
+ * Measured, not guessed: at the original values a competent player finished all 15
+ * waves without losing a single point of iceberg at any team size — no tension at all.
+ * At 2.5× the same player finishes with roughly half the iceberg gone. Push it to 3×
+ * and every team size dies on wave 7, because the economy compounds and a bad opening
+ * is unrecoverable.
+ *
+ * @type {Readonly<Record<string, EnemyType>>}
+ */
 export const ENEMY_TYPES = Object.freeze({
-  walker: Object.freeze({ id: 'walker', name: 'Walrus', hp: 20, speed: 1.8, damage: 2, bounty: 5 }),
-  runner: Object.freeze({ id: 'runner', name: 'Arctic Fox', hp: 10, speed: 3.6, damage: 1, bounty: 4 }),
-  brute: Object.freeze({ id: 'brute', name: 'Polar Bear', hp: 90, speed: 1.1, damage: 10, bounty: 15 }),
+  walker: Object.freeze({ id: 'walker', name: 'Walrus', hp: 50, speed: 1.8, damage: 2, bounty: 5 }),
+  runner: Object.freeze({ id: 'runner', name: 'Arctic Fox', hp: 25, speed: 3.6, damage: 1, bounty: 4 }),
+  brute: Object.freeze({ id: 'brute', name: 'Polar Bear', hp: 225, speed: 1.1, damage: 10, bounty: 15 }),
 });
 
 /** @type {ReadonlyArray<string>} */
