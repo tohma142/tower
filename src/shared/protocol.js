@@ -33,6 +33,8 @@ export const CLIENT_MSG = Object.freeze({
   PLACE: 'place',
   /** Spend fish to raise a placed penguin's level. */
   UPGRADE: 'upgrade',
+  /** Remove a placed penguin, refunding part of what it cost. */
+  SELL: 'sell',
   /** Toggle this player's ready state during the build phase. */
   READY: 'ready',
   /** From the game-over screen, return the room to the lobby. */
@@ -147,6 +149,10 @@ export const CLIENT_MSG_SPEC = Object.freeze({
     towerType: oneOf(TOWER_TYPE_IDS),
   }),
   [CLIENT_MSG.UPGRADE]: Object.freeze({
+    tileX: int(0, GRID_COLS - 1),
+    tileY: int(0, GRID_ROWS - 1),
+  }),
+  [CLIENT_MSG.SELL]: Object.freeze({
     tileX: int(0, GRID_COLS - 1),
     tileY: int(0, GRID_ROWS - 1),
   }),

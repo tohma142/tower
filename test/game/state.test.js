@@ -452,7 +452,9 @@ describe('snapshot', () => {
 
     for (const tower of snapshot(state).towers) {
       // `level` and `invested` are on the wire deliberately: every client must show the
-      // same penguin the same way, and the upgrade button needs an exact next price.
+      // same penguin the same way, the upgrade button needs an exact next price, and the
+      // sell button an exact refund. A client deriving the refund from the base cost now
+      // disagrees with the server about every upgraded penguin.
       assert.deepEqual(
         Object.keys(tower).sort(),
         ['id', 'invested', 'level', 'owner', 'type', 'x', 'y'],

@@ -136,6 +136,38 @@ export function levelMultiplier(level) {
   return TOWER_LEVEL_MULTIPLIER[level - 1] ?? 1;
 }
 
+// --- Selling -----------------------------------------------------------------
+
+/**
+ * Fraction of what a penguin cost that selling it returns.
+ *
+ * Not 1.0 on purpose. A full refund would make placement free to undo, and placement is
+ * the deepest decision in this game — the difference between coverage-ranked tiles and
+ * a left-to-right scan decides whole runs. At 0.7 a misclick costs 30% rather than the
+ * whole penguin, which is enough to keep the decision real without making it punishing.
+ *
+ * Applied to everything sunk into the penguin, not just its purchase price, so this
+ * stays correct when upgrades start adding to that total.
+ */
+export const SELL_REFUND_RATE = 0.7;
+
+/**
+ * What selling a penguin pays back.
+ *
+ * Shared rather than duplicated, because both sides compute it: the server to move the
+ * fish, the client to put a number on the button *before* the click. Two independent
+ * roundings would eventually disagree, and a button that promises 36 and pays 35 reads
+ * as a bug in the game rather than in the arithmetic.
+ *
+ * Floored, so a sell-and-rebuy cycle can never manufacture fish out of rounding.
+ *
+ * @param {number} invested Total fish sunk into the penguin.
+ * @returns {number} Fish returned, never negative.
+ */
+export function sellRefundFor(invested) {
+  return Math.max(0, Math.floor(invested * SELL_REFUND_RATE));
+}
+
 /** Waves in a full game. */
 export const TOTAL_WAVES = 15;
 

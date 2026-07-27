@@ -46,10 +46,11 @@ import { buildSpawnSchedule, waveEnemyCount } from './waves.js';
  * @property {any} [outcome]
  * @property {any} [bonus] Fish paid to each player for clearing a wave.
  * @property {any} [income] Fish paid to each player by their Fishers.
- * @property {any} [playerId] Who paid, for events that move fish.
+ * @property {any} [playerId] Who the fish moved to or from, for events that move fish.
  * @property {any} [towerType]
  * @property {any} [level]
  * @property {any} [cost]
+ * @property {any} [refund] Fish returned by selling a penguin.
  * @property {any} [tileX]
  * @property {any} [tileY]
  */
@@ -412,7 +413,8 @@ function round2(n) {
  * @property {string} owner
  * @property {number} level    Upgrade level, on the wire so every client shows the same
  *   penguin the same way.
- * @property {number} invested Total fish sunk into it.
+ * @property {number} invested Total fish sunk into it, which the sell refund is a
+ *   fraction of.
  */
 
 /**
@@ -486,6 +488,10 @@ export function snapshot(state) {
       y: t.tileY,
       owner: t.ownerId,
       level: t.level,
+      // `invested` is on the wire so the client can show an exact refund rather than
+      // deriving one from the base cost. Upgrades are exactly the case that comment
+      // anticipated: a client-side derivation from `cost` alone now disagrees with the
+      // server about what selling an upgraded penguin pays.
       invested: t.invested,
     })),
     projectiles: state.projectiles.map((p) => ({

@@ -164,6 +164,30 @@ describe('validateClientMessage — upgrade', () => {
   });
 });
 
+describe('validateClientMessage — sell', () => {
+  it('accepts a tile to sell', () => {
+    const value = accepts({ type: CLIENT_MSG.SELL, tileX: 3, tileY: 4 });
+    assert.deepEqual(value, { type: 'sell', tileX: 3, tileY: 4 });
+  });
+
+  it('bounds coordinates to the board, exactly as placement does', () => {
+    rejects({ type: CLIENT_MSG.SELL, tileX: -1, tileY: 0 }, /tileX/);
+    rejects({ type: CLIENT_MSG.SELL, tileX: GRID_COLS, tileY: 0 }, /tileX/);
+    rejects({ type: CLIENT_MSG.SELL, tileX: 0, tileY: GRID_ROWS }, /tileY/);
+    rejects({ type: CLIENT_MSG.SELL, tileX: 1.5, tileY: 0 }, /tileX must be an integer/);
+  });
+
+  it('rejects a tower type, which selling does not take', () => {
+    // The tile identifies what is being sold. Accepting a type as well would invite a
+    // client to send one and assume it is checked against what is standing there.
+    rejects({ type: CLIENT_MSG.SELL, tileX: 1, tileY: 1, towerType: 'pistol' }, /towerType/);
+  });
+
+  it('rejects a missing coordinate', () => {
+    rejects({ type: CLIENT_MSG.SELL, tileX: 1 }, /tileY/);
+  });
+});
+
 describe('validateClientMessage — ready and playAgain', () => {
   it('accepts both ready states', () => {
     assert.deepEqual(accepts({ type: CLIENT_MSG.READY, value: true }), { type: 'ready', value: true });

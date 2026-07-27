@@ -27,7 +27,9 @@ import { createProjectile } from './projectiles.js';
  *                              shoots, income if it does not.
  * @property {number} invested  Total fish sunk into it, purchase price plus every
  *                              upgrade. One field to read rather than a formula to
- *                              rediscover wherever the total matters.
+ *                              rediscover wherever the total matters — and what the
+ *                              sell refund is a fraction of, so an upgraded penguin
+ *                              refunds against everything it cost.
  * @property {import('../shared/constants.js').TowerType} spec
  */
 
@@ -70,6 +72,30 @@ export function createTower(state, { ownerId, type, tileX, tileY }) {
 
   state.towers.push(tower);
   return tower;
+}
+
+/**
+ * Remove a placed penguin from the board.
+ *
+ * Clears the occupancy entry as well as the tower list. Those two are the same fact
+ * stored twice — a tower left in `occupancy` after leaving `towers` makes its tile
+ * permanently unbuildable, with nothing drawn there to explain why.
+ *
+ * @param {import('./state.js').GameState} state
+ * @param {Tower} tower
+ * @returns {boolean} False when the tower was not on the board.
+ */
+export function removeTower(state, tower) {
+  const index = state.towers.indexOf(tower);
+  if (index === -1) return false;
+
+  state.towers.splice(index, 1);
+  state.occupancy.delete(tileKey(tower.tileX, tower.tileY));
+
+  // In-flight projectiles are deliberately left alone. They belong to the world once
+  // fired, not to the penguin that fired them, and cancelling them would let a player
+  // un-hit an enemy that a shot was already going to kill.
+  return true;
 }
 
 /**

@@ -12,12 +12,18 @@
  * on every run.
  */
 
-import { MAX_TOWER_LEVEL, PHASE, TOWER_TYPES, upgradeCostFor } from '../shared/constants.js';
+import {
+  MAX_TOWER_LEVEL,
+  PHASE,
+  TOWER_TYPES,
+  sellRefundFor,
+  upgradeCostFor,
+} from '../shared/constants.js';
 import { isBuildable, isInBounds, tileKey } from '../shared/map.js';
 import { REJECT_REASON } from '../shared/protocol.js';
 
-import { tryCharge } from './economy.js';
-import { createTower, towerAt } from './towers.js';
+import { refund, tryCharge } from './economy.js';
+import { createTower, removeTower, towerAt } from './towers.js';
 
 /**
  * @typedef {{ ok: true }} CommandOk
@@ -96,6 +102,9 @@ function applyPlace(state, playerId, cmd) {
  * whoever clicked. Towers belong to the team, and an upgrade a teammate cannot fund
  * because they did not place it would make co-operation harder than playing alone.
  *
+ * The cost is added to `invested`, which is what makes a later sell refund against the
+ * upgrades too rather than only against the purchase price.
+ *
  * @param {import('./state.js').GameState} state
  * @param {string} playerId
  * @param {{ tileX: number, tileY: number }} cmd
@@ -147,6 +156,63 @@ function applyUpgrade(state, playerId, cmd) {
 }
 
 /**
+ * Sell a placed penguin, refunding a fraction of everything sunk into it.
+ *
+ * "Everything sunk into it" is `tower.invested`, so an upgraded penguin refunds against
+ * its upgrades as well as its purchase price. That is the whole reason the total lives in
+ * one field instead of being recomputed from the level here.
+ *
+ * The refund goes to whoever *paid*, not whoever clicked. Wallets are per-player, so
+ * paying the seller would let one player cash out another's investment into their own
+ * pocket — a real problem in a game where the only shared thing is income. When the
+ * original owner has left the game entirely their fish has nowhere to go, and the seller
+ * takes it rather than it evaporating.
+ *
+ * Allowed mid-wave, for the same reason placement is: reacting to a wave going wrong is
+ * playing the game, not exploiting it. Selling in front of a leak still costs 30%.
+ *
+ * @param {import('./state.js').GameState} state
+ * @param {string} playerId
+ * @param {{ tileX: number, tileY: number }} cmd
+ * @returns {CommandResult}
+ */
+function applySell(state, playerId, cmd) {
+  if (!state.players.has(playerId)) {
+    return { ok: false, reason: REJECT_REASON.NOT_A_PLAYER };
+  }
+
+  if (!BUILDABLE_PHASES.has(state.phase)) {
+    return { ok: false, reason: REJECT_REASON.WRONG_PHASE };
+  }
+
+  if (!isInBounds(cmd.tileX, cmd.tileY)) {
+    return { ok: false, reason: REJECT_REASON.OUT_OF_BOUNDS };
+  }
+
+  const tower = towerAt(state, cmd.tileX, cmd.tileY);
+  if (tower === undefined) {
+    return { ok: false, reason: REJECT_REASON.NO_TOWER_HERE };
+  }
+
+  const amount = sellRefundFor(tower.invested);
+  const payee = state.players.has(tower.ownerId) ? tower.ownerId : playerId;
+
+  removeTower(state, tower);
+  refund(state, payee, amount);
+
+  state.events.push({
+    kind: 'towerSold',
+    playerId: payee,
+    towerType: tower.type,
+    refund: amount,
+    tileX: tower.tileX,
+    tileY: tower.tileY,
+  });
+
+  return { ok: true };
+}
+
+/**
  * Set a player's ready flag.
  *
  * Only meaningful during the build phase; readying at any other time is refused rather
@@ -188,6 +254,8 @@ export function applyCommand(state, playerId, cmd) {
       return applyPlace(state, playerId, /** @type {any} */ (cmd));
     case 'upgrade':
       return applyUpgrade(state, playerId, /** @type {any} */ (cmd));
+    case 'sell':
+      return applySell(state, playerId, /** @type {any} */ (cmd));
     case 'ready':
       return applyReady(state, playerId, /** @type {any} */ (cmd));
     default:

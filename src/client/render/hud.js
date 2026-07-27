@@ -48,6 +48,10 @@ export function describeEvent(event, playerId = null) {
     case 'towerUpgraded':
       return `${TOWER_TYPES[event.towerType]?.name ?? event.towerType} upgraded to level ${event.level} (-${event.cost} fish)`;
 
+    case 'towerSold':
+      // Named by display name, not type id, on the same rule as the leak line above.
+      return `${TOWER_TYPES[event.towerType]?.name ?? event.towerType} sold (+${event.refund} fish)`;
+
     case 'gameStarted':
       return 'Game started — build your defences';
 
@@ -151,19 +155,28 @@ function buildHud(doc) {
   const selection = el('selection');
   const selectionName = el('selection-name');
   const upgradeButton = /** @type {HTMLButtonElement} */ (el('upgrade'));
+  const sellButton = /** @type {HTMLButtonElement} */ (el('sell'));
   const overlay = el('overlay');
   const overlayTitle = el('overlay-title');
   const overlayBody = el('overlay-body');
   const overlayAction = /** @type {HTMLButtonElement} */ (el('overlay-action'));
 
   return {
-    elements: { readyButton, shopButtons, overlayAction, upgradeButton, copyLink: el('copy-link') },
+    elements: {
+      readyButton,
+      shopButtons,
+      overlayAction,
+      upgradeButton,
+      sellButton,
+      copyLink: el('copy-link'),
+    },
 
     /**
-     * Show the selected penguin, its level, and what the next one costs.
+     * Show the selected penguin: its level, what the next one costs, and what selling it
+     * pays back. Or hide the panel entirely.
      *
      * @param {{ name: string, level: number, maxLevel: number, cost: number | null,
-     *   affordable: boolean, canEdit: boolean } | null} content
+     *   affordable: boolean, refund: number, canEdit: boolean } | null} content
      * @returns {void}
      */
     setSelection(content) {
@@ -179,6 +192,9 @@ function buildHud(doc) {
       // Disabled on price as well as on the cap, so the button never invites a click the
       // server is certain to refuse.
       upgradeButton.disabled = atCap || !content.affordable || !content.canEdit;
+
+      sellButton.textContent = `Sell (+${content.refund} fish)`;
+      sellButton.disabled = !content.canEdit;
     },
 
     /** @param {string} code */
