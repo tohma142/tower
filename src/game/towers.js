@@ -6,7 +6,7 @@
  * targeting rule (furthest along the path) and in cooldown accounting.
  */
 
-import { TOWER_TYPES } from '../shared/constants.js';
+import { TOWER_TYPES, isCombatTower } from '../shared/constants.js';
 
 import { findTarget } from './enemies.js';
 import { createProjectile } from './projectiles.js';
@@ -65,6 +65,23 @@ export function createTower(state, { ownerId, type, tileX, tileY }) {
 }
 
 /**
+ * Fish every Fisher on the board pays each player when a wave is cleared.
+ *
+ * Paid to every player rather than split, exactly like a kill bounty. Splitting it would
+ * make a Fisher worth less the more friends you have, which is the opposite of what a
+ * co-operative game should reward — and enemy hit points already scale with headcount,
+ * so a per-player payout stays in step with the difficulty it is funding.
+ *
+ * @param {import('./state.js').GameState} state
+ * @returns {number} Fish per player, zero when nobody has built one.
+ */
+export function totalIncome(state) {
+  let total = 0;
+  for (const tower of state.towers) total += tower.spec.income;
+  return total;
+}
+
+/**
  * Tick every tower: run down cooldowns, acquire targets, and fire.
  *
  * @param {import('./state.js').GameState} state
@@ -75,6 +92,11 @@ export function updateTowers(state, dtMs) {
   if (state.towers.length === 0) return;
 
   for (const tower of state.towers) {
+    // Support penguins have no weapon. Skipping them here rather than giving them a
+    // range of zero keeps them out of the targeting loop entirely, and means a fireRate
+    // of zero never becomes a division by zero in the cooldown below.
+    if (!isCombatTower(tower.spec)) continue;
+
     if (tower.cooldownMs > 0) {
       tower.cooldownMs -= dtMs;
       if (tower.cooldownMs > 0) continue;

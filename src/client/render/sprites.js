@@ -63,6 +63,22 @@ export const PENGUIN_SPRITES = Object.freeze({
     '...##..##...',
     '..###..###..',
   ]),
+  // Fisher: no weapon at all — a rod out to one side and a line down to the ice, so it
+  // reads as "not a gun" from across the board rather than as a penguin facing away.
+  fisher: Object.freeze([
+    '....####..+.',
+    '...#oooo#+..',
+    '...#o##o+...',
+    '...#oooo#...',
+    '....#--#.+..',
+    '...######+..',
+    '..#o####o#..',
+    '..#o####o#+.',
+    '..#o####o#..',
+    '...######.+.',
+    '...##..##...',
+    '..###..###.+',
+  ]),
   // Bomber: wider body, round charge held low.
   bomber: Object.freeze([
     '....####....',

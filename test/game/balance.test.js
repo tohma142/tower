@@ -67,9 +67,17 @@ const RANKED_TILES = tilesByCoverage(3);
  * @param {number} options.players
  * @param {ReadonlyArray<string>} [options.buyOrder] Preference order, strongest first.
  * @param {number} [options.towerLimit] Cap on penguins, to model a weak build.
- * @returns {{ outcome: string | null, wave: number, icebergHp: number, leaks: number, towers: number }}
+ * @param {number} [options.openWithFishers] Fishers bought before any defence, to model
+ *   a player who thinks economy is free.
+ * @returns {{ outcome: string | null, wave: number, icebergHp: number, leaks: number,
+ *   towers: number, fishers: number }}
  */
-function playGame({ players, buyOrder = ['sniper', 'pistol'], towerLimit = Infinity }) {
+function playGame({
+  players,
+  buyOrder = ['sniper', 'pistol'],
+  towerLimit = Infinity,
+  openWithFishers = 0,
+}) {
   const state = createGameState();
   /** @type {string[]} */
   const ids = [];
@@ -81,6 +89,19 @@ function playGame({ players, buyOrder = ['sniper', 'pistol'], towerLimit = Infin
 
   /** @type {Set<string>} */
   const used = new Set();
+
+  // Spend the opening budget on economy before anything else, to model the player who
+  // thinks a Fisher is free money.
+  for (let i = 0; i < openWithFishers; i += 1) {
+    const tile = RANKED_TILES[RANKED_TILES.length - 1 - i];
+    const bought = applyCommand(state, ids[0], {
+      type: 'place',
+      tileX: tile.x,
+      tileY: tile.y,
+      towerType: 'fisher',
+    });
+    if (bought.ok) used.add(`${tile.x},${tile.y}`);
+  }
 
   /** Spend everyone down onto the best free tiles. */
   const spend = () => {
@@ -129,6 +150,7 @@ function playGame({ players, buyOrder = ['sniper', 'pistol'], towerLimit = Infin
     icebergHp: state.icebergHp,
     leaks: state.leaks,
     towers: state.towers.length,
+    fishers: state.towers.filter((t) => t.type === 'fisher').length,
   };
 }
 
@@ -168,6 +190,30 @@ describe('the game is not trivial', () => {
 
     assert.equal(result.outcome, 'loss', 'five penguins should not hold fifteen waves');
     assert.ok(result.wave < TOTAL_WAVES);
+  });
+});
+
+describe('the Fisher is a trade, not a free win', () => {
+  it('loses the game when bought instead of an opening defence', () => {
+    // The measured failure mode this guards against is the opposite of the obvious one.
+    // A Fisher is not overpowered — it is a real cost, and spending the opening budget
+    // on economy at 25 iceberg hit points loses on wave 2. If a future income or price
+    // change ever makes opening with Fishers *survivable*, the unit has become free
+    // money and this test should be the thing that says so.
+    const result = playGame({ players: 1, openWithFishers: 1 });
+
+    assert.equal(result.outcome, 'loss', 'opening on economy must not be safe');
+    assert.ok(result.wave < 5, `died on wave ${result.wave}, expected an early collapse`);
+  });
+
+  it('does not change the reference build, which never buys one', () => {
+    // Pins the claim that this feature retuned nothing: the guard's build order is
+    // sniper-then-pistol, so every winnability assertion above measures the same game it
+    // measured before Fishers existed.
+    const result = playGame({ players: 1 });
+
+    assert.equal(result.outcome, 'win');
+    assert.equal(result.fishers, 0, 'the reference build must not have bought a Fisher');
   });
 });
 
