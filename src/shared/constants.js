@@ -78,8 +78,18 @@ export const ROOM_CODE_LENGTH = 5;
 /** Fish each player starts a game with. */
 export const STARTING_FISH = 150;
 
-/** Iceberg hit points. Each enemy that reaches it subtracts its own `damage`. */
-export const ICEBERG_HP = 100;
+/**
+ * Iceberg hit points. Each enemy that reaches it subtracts its own `damage`.
+ *
+ * Small on purpose. A pool of 100 made the first six waves the only ones that mattered
+ * and still left 50 points unspent at the end — leaks stopped being decisions. At 25, a
+ * single Polar Bear costs 40% of the objective.
+ *
+ * This number is load-bearing against {@link ENEMY_TYPES} speeds, not independent of
+ * them: 25 with the original speeds is unwinnable at every team size (dead on wave 3,
+ * four penguins in). The two were retuned together — see the speed note on ENEMY_TYPES.
+ */
+export const ICEBERG_HP = 25;
 
 /** Waves in a full game. */
 export const TOTAL_WAVES = 15;
@@ -92,8 +102,8 @@ export const TOTAL_WAVES = 15;
  *
  * Income is shared, and wallets are per-player, so a team's total purchasing power
  * scales linearly with headcount. Anything shallower than linear hands larger teams a
- * structural advantage. Measured across 1–4 players, this leaves the iceberg at 50–62
- * of 100 at the end of wave 15 regardless of team size; the earlier 1 + 0.6(n-1) left
+ * structural advantage. Measured across 1–4 players, this leaves the iceberg at 5–11
+ * of 25 at the end of wave 15 regardless of team size; the earlier 1 + 0.6(n-1) left
  * bigger teams visibly better off.
  *
  * Locked in when the game starts, so mid-game joins and drops cannot retune a wave
@@ -225,12 +235,20 @@ export const TOWER_TYPE_IDS = Object.freeze(Object.keys(TOWER_TYPES));
  * and every team size dies on wave 7, because the economy compounds and a bad opening
  * is unrecoverable.
  *
+ * Speeds are ~0.7× the original 1.8 / 3.6 / 1.1, and that factor pairs with
+ * {@link ICEBERG_HP} dropping from 100 to 25. Speed is really a *damage* knob here:
+ * slower enemies spend longer inside tower range, so each penguin lands more shots per
+ * creature and fewer things reach the objective. Measured at 25 iceberg HP, 1.0× loses
+ * at every team size on wave 3 and 0.8× still loses solo; 0.7× is the fastest the
+ * enemies can move and leave the game winnable, and it leaves solo finishing on 5 of 25.
+ * Below ~0.4× nobody takes a scratch and the objective stops existing.
+ *
  * @type {Readonly<Record<string, EnemyType>>}
  */
 export const ENEMY_TYPES = Object.freeze({
-  walker: Object.freeze({ id: 'walker', name: 'Walrus', hp: 50, speed: 1.8, damage: 2, bounty: 5 }),
-  runner: Object.freeze({ id: 'runner', name: 'Arctic Fox', hp: 25, speed: 3.6, damage: 1, bounty: 4 }),
-  brute: Object.freeze({ id: 'brute', name: 'Polar Bear', hp: 225, speed: 1.1, damage: 10, bounty: 15 }),
+  walker: Object.freeze({ id: 'walker', name: 'Walrus', hp: 50, speed: 1.25, damage: 2, bounty: 5 }),
+  runner: Object.freeze({ id: 'runner', name: 'Arctic Fox', hp: 25, speed: 2.5, damage: 1, bounty: 4 }),
+  brute: Object.freeze({ id: 'brute', name: 'Polar Bear', hp: 225, speed: 0.75, damage: 10, bounty: 15 }),
 });
 
 /** @type {ReadonlyArray<string>} */
