@@ -37,12 +37,19 @@ const HIT_RADIUS = 0.25;
 /**
  * Launch a projectile from a tower at an enemy.
  *
+ * Damage is passed in rather than read from `tower.spec`, for two reasons. A penguin's
+ * damage depends on its upgrade level, and reading the base value here would silently
+ * ignore every upgrade — but more importantly, computing it here would mean importing
+ * the towers module, which already imports this one. The caller owns what a shot hits
+ * for; this module owns how it travels.
+ *
  * @param {import('./state.js').GameState} state
  * @param {import('./towers.js').Tower} tower
  * @param {import('./enemies.js').Enemy} target
+ * @param {number} damage What this shot does on impact, already scaled for level.
  * @returns {Projectile}
  */
-export function createProjectile(state, tower, target) {
+export function createProjectile(state, tower, target, damage) {
   const spec = tower.spec;
   const targetPos = enemyPosition(target);
 
@@ -54,7 +61,7 @@ export function createProjectile(state, tower, target) {
     targetId: target.id,
     tx: targetPos.x,
     ty: targetPos.y,
-    damage: spec.damage,
+    damage,
     splashRadius: spec.splashRadius,
     speed: spec.projectileSpeed,
   };

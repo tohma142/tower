@@ -91,6 +91,51 @@ export const STARTING_FISH = 150;
  */
 export const ICEBERG_HP = 25;
 
+// --- Upgrades ----------------------------------------------------------------
+
+/** Levels a penguin can reach. Level 1 is what placing one gives you. */
+export const MAX_TOWER_LEVEL = 3;
+
+/**
+ * Output multiplier at each level, indexed from level 1.
+ *
+ * "Output" is damage for a penguin that shoots and income for one that does not, so a
+ * single table covers both and no unit can be upgraded into something the table never
+ * anticipated.
+ *
+ * Superlinear on purpose. Upgrading has to compete with buying another penguin, and a
+ * second penguin brings its own tile, its own coverage, and its own target. Matching the
+ * price with a matching output increase would make upgrading strictly worse than
+ * expanding, and the feature would be decoration.
+ */
+export const TOWER_LEVEL_MULTIPLIER = Object.freeze([1, 1.75, 3]);
+
+/**
+ * Fish to take a penguin from `level` to the next one.
+ *
+ * Priced off the unit's own cost so a Sniper upgrade stays expensive relative to a
+ * Pistol upgrade without a second table to keep in step.
+ *
+ * @param {TowerType} spec
+ * @param {number} level Current level, 1-based.
+ * @returns {number} Cost, or Infinity when already at the cap — so an unguarded caller
+ *   fails to afford it rather than silently upgrading past the table.
+ */
+export function upgradeCostFor(spec, level) {
+  if (level >= MAX_TOWER_LEVEL) return Infinity;
+  return Math.round(spec.cost * 0.8 * level);
+}
+
+/**
+ * A penguin's output multiplier at a given level.
+ *
+ * @param {number} level 1-based.
+ * @returns {number}
+ */
+export function levelMultiplier(level) {
+  return TOWER_LEVEL_MULTIPLIER[level - 1] ?? 1;
+}
+
 /** Waves in a full game. */
 export const TOTAL_WAVES = 15;
 

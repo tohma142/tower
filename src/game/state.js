@@ -46,6 +46,12 @@ import { buildSpawnSchedule, waveEnemyCount } from './waves.js';
  * @property {any} [outcome]
  * @property {any} [bonus] Fish paid to each player for clearing a wave.
  * @property {any} [income] Fish paid to each player by their Fishers.
+ * @property {any} [playerId] Who paid, for events that move fish.
+ * @property {any} [towerType]
+ * @property {any} [level]
+ * @property {any} [cost]
+ * @property {any} [tileX]
+ * @property {any} [tileY]
  */
 
 /**
@@ -404,6 +410,9 @@ function round2(n) {
  * @property {number} x Tile column.
  * @property {number} y Tile row.
  * @property {string} owner
+ * @property {number} level    Upgrade level, on the wire so every client shows the same
+ *   penguin the same way.
+ * @property {number} invested Total fish sunk into it.
  */
 
 /**
@@ -476,6 +485,8 @@ export function snapshot(state) {
       x: t.tileX,
       y: t.tileY,
       owner: t.ownerId,
+      level: t.level,
+      invested: t.invested,
     })),
     projectiles: state.projectiles.map((p) => ({
       id: p.id,

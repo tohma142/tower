@@ -12,12 +12,12 @@
  * on every run.
  */
 
-import { PHASE, TOWER_TYPES } from '../shared/constants.js';
+import { MAX_TOWER_LEVEL, PHASE, TOWER_TYPES, upgradeCostFor } from '../shared/constants.js';
 import { isBuildable, isInBounds, tileKey } from '../shared/map.js';
 import { REJECT_REASON } from '../shared/protocol.js';
 
 import { tryCharge } from './economy.js';
-import { createTower } from './towers.js';
+import { createTower, towerAt } from './towers.js';
 
 /**
  * @typedef {{ ok: true }} CommandOk
@@ -90,6 +90,63 @@ function applyPlace(state, playerId, cmd) {
 }
 
 /**
+ * Spend fish to raise a placed penguin's level.
+ *
+ * Any player may upgrade any penguin, and any player may pay for it — the buyer is
+ * whoever clicked. Towers belong to the team, and an upgrade a teammate cannot fund
+ * because they did not place it would make co-operation harder than playing alone.
+ *
+ * @param {import('./state.js').GameState} state
+ * @param {string} playerId
+ * @param {{ tileX: number, tileY: number }} cmd
+ * @returns {CommandResult}
+ */
+function applyUpgrade(state, playerId, cmd) {
+  if (!state.players.has(playerId)) {
+    return { ok: false, reason: REJECT_REASON.NOT_A_PLAYER };
+  }
+
+  if (!BUILDABLE_PHASES.has(state.phase)) {
+    return { ok: false, reason: REJECT_REASON.WRONG_PHASE };
+  }
+
+  if (!isInBounds(cmd.tileX, cmd.tileY)) {
+    return { ok: false, reason: REJECT_REASON.OUT_OF_BOUNDS };
+  }
+
+  const tower = towerAt(state, cmd.tileX, cmd.tileY);
+  if (tower === undefined) {
+    return { ok: false, reason: REJECT_REASON.NO_TOWER_HERE };
+  }
+
+  // Checked before affordability, so a penguin at the cap says so rather than telling a
+  // player they cannot afford something that was never for sale.
+  if (tower.level >= MAX_TOWER_LEVEL) {
+    return { ok: false, reason: REJECT_REASON.ALREADY_MAX_LEVEL };
+  }
+
+  const cost = upgradeCostFor(tower.spec, tower.level);
+  if (!tryCharge(state, playerId, cost)) {
+    return { ok: false, reason: REJECT_REASON.INSUFFICIENT_FISH };
+  }
+
+  tower.level += 1;
+  tower.invested += cost;
+
+  state.events.push({
+    kind: 'towerUpgraded',
+    playerId,
+    towerType: tower.type,
+    level: tower.level,
+    cost,
+    tileX: tower.tileX,
+    tileY: tower.tileY,
+  });
+
+  return { ok: true };
+}
+
+/**
  * Set a player's ready flag.
  *
  * Only meaningful during the build phase; readying at any other time is refused rather
@@ -129,6 +186,8 @@ export function applyCommand(state, playerId, cmd) {
   switch (cmd.type) {
     case 'place':
       return applyPlace(state, playerId, /** @type {any} */ (cmd));
+    case 'upgrade':
+      return applyUpgrade(state, playerId, /** @type {any} */ (cmd));
     case 'ready':
       return applyReady(state, playerId, /** @type {any} */ (cmd));
     default:

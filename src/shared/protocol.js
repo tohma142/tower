@@ -31,6 +31,8 @@ export const CLIENT_MSG = Object.freeze({
   HELLO: 'hello',
   /** Buy and place a penguin. */
   PLACE: 'place',
+  /** Spend fish to raise a placed penguin's level. */
+  UPGRADE: 'upgrade',
   /** Toggle this player's ready state during the build phase. */
   READY: 'ready',
   /** From the game-over screen, return the room to the lobby. */
@@ -67,6 +69,8 @@ export const REJECT_REASON = Object.freeze({
   WRONG_PHASE: 'wrongPhase',
   NOT_A_PLAYER: 'notAPlayer',
   UNKNOWN_TOWER_TYPE: 'unknownTowerType',
+  NO_TOWER_HERE: 'noTowerHere',
+  ALREADY_MAX_LEVEL: 'alreadyMaxLevel',
   ROOM_NOT_FOUND: 'roomNotFound',
   ROOM_FULL: 'roomFull',
 });
@@ -141,6 +145,10 @@ export const CLIENT_MSG_SPEC = Object.freeze({
     tileX: int(0, GRID_COLS - 1),
     tileY: int(0, GRID_ROWS - 1),
     towerType: oneOf(TOWER_TYPE_IDS),
+  }),
+  [CLIENT_MSG.UPGRADE]: Object.freeze({
+    tileX: int(0, GRID_COLS - 1),
+    tileY: int(0, GRID_ROWS - 1),
   }),
   [CLIENT_MSG.READY]: Object.freeze({
     value: bool(),

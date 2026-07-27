@@ -182,6 +182,13 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .shop-button .cost { color: inherit; opacity: 0.75; }
 
+#selection-name {
+  margin: 0 0 0.6rem;
+  color: var(--bright);
+}
+
+#upgrade { width: 100%; }
+
 #shop-hint, #waiting-on {
   margin: 0.6rem 0 0;
   color: var(--dim);

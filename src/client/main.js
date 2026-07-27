@@ -7,7 +7,14 @@
  * arrives — the smallest amount of optimism that stops the game feeling laggy.
  */
 
-import { PHASE, RENDER_DELAY_MS, RENDER_SCALE, TOWER_TYPES } from '../shared/constants.js';
+import {
+  MAX_TOWER_LEVEL,
+  PHASE,
+  RENDER_DELAY_MS,
+  RENDER_SCALE,
+  TOWER_TYPES,
+  upgradeCostFor,
+} from '../shared/constants.js';
 import { isBuildable } from '../shared/map.js';
 
 import { log, setLogLevel } from './log.js';
@@ -36,9 +43,11 @@ const hud = createHud(document);
 /** The room code from `/r/CODE`, or null on `/` meaning "make me one". */
 const roomFromUrl = /^\/r\/([A-Z0-9]+)\/?$/.exec(location.pathname)?.[1] ?? null;
 
-/** @type {{ selectedTower: string | null, hoverTile: { x: number, y: number } | null, roster: any, latestView: import('../game/state.js').Snapshot | null, ready: boolean }} */
+/** @type {{ selectedTower: string | null, selectedTile: { x: number, y: number } | null, hoverTile: { x: number, y: number } | null, roster: any, latestView: import('../game/state.js').Snapshot | null, ready: boolean }} */
 const ui = {
   selectedTower: null,
+  /** A placed penguin the player has clicked, addressed by tile rather than by id. */
+  selectedTile: null,
   hoverTile: null,
   roster: { players: [], spectators: 0, waitingOn: [] },
   latestView: null,
@@ -98,9 +107,18 @@ const connection = createConnection({
 
 hud.buildShop((id) => {
   ui.selectedTower = ui.selectedTower === id ? null : id;
+  // Buying and inspecting are different modes; leaving a penguin selected while a shop
+  // item is armed would leave two panels claiming the next click.
+  if (ui.selectedTower !== null) ui.selectedTile = null;
   hud.setSelectedTower(ui.selectedTower);
 });
 hud.setSelectedTower(null);
+hud.setSelection(null);
+
+hud.elements.upgradeButton.addEventListener('click', () => {
+  if (ui.selectedTile === null) return;
+  connection.send({ type: 'upgrade', tileX: ui.selectedTile.x, tileY: ui.selectedTile.y });
+});
 
 canvas.addEventListener('mousemove', (event) => {
   ui.hoverTile = eventToTile(event, canvas.getBoundingClientRect(), backing, RENDER_SCALE);
@@ -111,17 +129,22 @@ canvas.addEventListener('mouseleave', () => {
 });
 
 canvas.addEventListener('click', (event) => {
-  if (ui.selectedTower === null) return;
-
   const tile = eventToTile(event, canvas.getBoundingClientRect(), backing, RENDER_SCALE);
   if (tile === null) return;
 
-  connection.send({
-    type: 'place',
-    tileX: tile.x,
-    tileY: tile.y,
-    towerType: ui.selectedTower,
-  });
+  // With a shop item armed the click buys. Otherwise it inspects whatever is standing
+  // there — and a click on bare ice clears the selection, which is how you get out.
+  if (ui.selectedTower !== null) {
+    connection.send({
+      type: 'place',
+      tileX: tile.x,
+      tileY: tile.y,
+      towerType: ui.selectedTower,
+    });
+    return;
+  }
+
+  ui.selectedTile = towerAtTile(ui.latestView, tile) === undefined ? null : tile;
 });
 
 hud.elements.readyButton.addEventListener('click', () => {
@@ -158,6 +181,7 @@ window.addEventListener('keydown', (event) => {
 
   if (event.key === 'Escape') {
     ui.selectedTower = null;
+    ui.selectedTile = null;
     hud.setSelectedTower(null);
     return;
   }
@@ -184,6 +208,57 @@ function ghostAllowed(tile, view) {
   if (!isBuildable(tile.x, tile.y)) return false;
   if (view === null) return true;
   return !view.towers.some((tower) => tower.x === tile.x && tower.y === tile.y);
+}
+
+/**
+ * The penguin standing on a tile in a given snapshot, if any.
+ *
+ * @param {import('../game/state.js').Snapshot | null} view
+ * @param {{ x: number, y: number }} tile
+ * @returns {import('../game/state.js').SnapshotTower | undefined}
+ */
+function towerAtTile(view, tile) {
+  return view?.towers.find((t) => t.x === tile.x && t.y === tile.y);
+}
+
+/**
+ * Reconcile the selection panel against the authoritative world.
+ *
+ * Driven from the snapshot every frame rather than latched at click time: another player
+ * can upgrade the penguin you have selected, and the panel has to show what is true
+ * rather than what this client last saw.
+ *
+ * @param {import('../game/state.js').Snapshot} view
+ * @returns {void}
+ */
+function updateSelection(view) {
+  if (ui.selectedTile === null) {
+    hud.setSelection(null);
+    return;
+  }
+
+  const tower = towerAtTile(view, ui.selectedTile);
+  if (tower === undefined) {
+    ui.selectedTile = null;
+    hud.setSelection(null);
+    return;
+  }
+
+  const spec = TOWER_TYPES[tower.type];
+  const atCap = tower.level >= MAX_TOWER_LEVEL;
+  const cost = atCap || spec === undefined ? null : upgradeCostFor(spec, tower.level);
+  const me = view.players.find((p) => p.id === connection.playerId());
+
+  hud.setSelection({
+    name: spec?.name ?? tower.type,
+    level: tower.level,
+    maxLevel: MAX_TOWER_LEVEL,
+    cost,
+    affordable: cost !== null && me !== undefined && me.fish >= cost,
+    canEdit:
+      connection.role() === 'player' &&
+      (view.phase === PHASE.BUILD || view.phase === PHASE.WAVE),
+  });
 }
 
 /**
@@ -269,6 +344,7 @@ function frame() {
   }
 
   hud.updateVitals(view, connection.playerId());
+  updateSelection(view);
   updateReadyButton(view);
   updateOverlay(view);
 

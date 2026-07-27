@@ -144,6 +144,26 @@ describe('validateClientMessage — hello', () => {
   });
 });
 
+describe('validateClientMessage — upgrade', () => {
+  it('accepts a tile to upgrade', () => {
+    assert.deepEqual(
+      accepts({ type: CLIENT_MSG.UPGRADE, tileX: 3, tileY: 4 }),
+      { type: 'upgrade', tileX: 3, tileY: 4 },
+    );
+  });
+
+  it('bounds coordinates to the board', () => {
+    rejects({ type: CLIENT_MSG.UPGRADE, tileX: -1, tileY: 0 }, /tileX/);
+    rejects({ type: CLIENT_MSG.UPGRADE, tileX: 0, tileY: GRID_ROWS }, /tileY/);
+  });
+
+  it('rejects a level, which the client does not get to choose', () => {
+    // The server decides what the next level is. Accepting one here would invite a
+    // client to ask for level 3 directly.
+    rejects({ type: CLIENT_MSG.UPGRADE, tileX: 1, tileY: 1, level: 3 }, /unexpected field: level/);
+  });
+});
+
 describe('validateClientMessage — ready and playAgain', () => {
   it('accepts both ready states', () => {
     assert.deepEqual(accepts({ type: CLIENT_MSG.READY, value: true }), { type: 'ready', value: true });
