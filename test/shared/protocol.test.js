@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { GRID_COLS, GRID_ROWS } from '../../src/shared/constants.js';
+import { GRID_COLS, GRID_ROWS, TARGET_PRIORITY_IDS } from '../../src/shared/constants.js';
 import { CLIENT_MSG, validateClientMessage } from '../../src/shared/protocol.js';
 
 /**
@@ -141,6 +141,33 @@ describe('validateClientMessage — hello', () => {
   it('rejects a seat token that is present but not a UUID', () => {
     rejects({ type: CLIENT_MSG.HELLO, roomCode: 'BCDFG', seatToken: 'x'.repeat(36) }, /seatToken is malformed/);
     rejects({ type: CLIENT_MSG.HELLO, roomCode: 'BCDFG', seatToken: 'short' }, /seatToken must be/);
+  });
+});
+
+describe('validateClientMessage — setTarget', () => {
+  it('accepts every priority the game defines', () => {
+    // Driven off the constants rather than a hand-written list, so a rule added to the
+    // game without a spec entry fails here rather than at a player's click.
+    for (const priority of TARGET_PRIORITY_IDS) {
+      const value = accepts({ type: CLIENT_MSG.SET_TARGET, tileX: 2, tileY: 3, priority });
+      assert.equal(value.priority, priority);
+    }
+  });
+
+  it('rejects a priority the game does not define, and lists the valid ones', () => {
+    rejects(
+      { type: CLIENT_MSG.SET_TARGET, tileX: 1, tileY: 1, priority: 'weakest' },
+      /priority must be one of/,
+    );
+  });
+
+  it('bounds coordinates to the board', () => {
+    rejects({ type: CLIENT_MSG.SET_TARGET, tileX: -1, tileY: 0, priority: 'first' }, /tileX/);
+    rejects({ type: CLIENT_MSG.SET_TARGET, tileX: 0, tileY: GRID_ROWS, priority: 'first' }, /tileY/);
+  });
+
+  it('rejects a missing priority', () => {
+    rejects({ type: CLIENT_MSG.SET_TARGET, tileX: 1, tileY: 1 }, /priority/);
   });
 });
 

@@ -182,6 +182,25 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .shop-button .cost { color: inherit; opacity: 0.75; }
 
+#selection-name {
+  margin: 0 0 0.6rem;
+  color: var(--bright);
+}
+
+#selection .label { display: block; margin-bottom: 0.35rem; }
+
+#target-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem;
+}
+
+#target-buttons button[aria-pressed='true'] {
+  background: var(--text);
+  color: #0e0e0e;
+  border-color: var(--text);
+}
+
 #shop-hint, #waiting-on {
   margin: 0.6rem 0 0;
   color: var(--dim);

@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { describeEvent } from '../../src/client/render/hud.js';
-import { ENEMY_TYPES } from '../../src/shared/constants.js';
+import { describeEvent, describePriority } from '../../src/client/render/hud.js';
+import { ENEMY_TYPES, TARGET_PRIORITY_IDS } from '../../src/shared/constants.js';
 import { REJECT_REASON } from '../../src/shared/protocol.js';
 
 /**
@@ -84,6 +84,25 @@ describe('describeEvent', () => {
     // Forward compatibility: a newer server may refuse for a reason this client has
     // never heard of, and silence would be worse than an awkward sentence.
     assert.match(line({ kind: 'commandRejected', reason: 'somethingNew' }, 'p1'), /somethingNew/);
+  });
+
+  it('has plain wording for every targeting rule', () => {
+    // Same rule as the rejection reasons and the enemy names: these strings sit on
+    // buttons the player presses, so a raw constant like "strongest" with no
+    // explanation of strongest *what* is internal vocabulary reaching the screen.
+    for (const priority of TARGET_PRIORITY_IDS) {
+      const { label, hint } = describePriority(priority);
+
+      assert.ok(label.length > 0, `no label for ${priority}`);
+      assert.ok(hint.length > 0, `no explanation for ${priority}`);
+      assert.notEqual(label, priority, `${priority} is shown as its own constant`);
+    }
+  });
+
+  it('still shows something for a targeting rule it has never heard of', () => {
+    // A newer server could add a rule this client has no wording for. A button reading
+    // "undefined" is worse than one reading the raw id.
+    assert.equal(describePriority('quantum').label, 'quantum');
   });
 
   it('ignores events with nothing worth saying', () => {
