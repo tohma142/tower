@@ -451,7 +451,9 @@ describe('snapshot', () => {
     place(state, 'p1', tile.x, tile.y, 'pistol');
 
     for (const tower of snapshot(state).towers) {
-      assert.deepEqual(Object.keys(tower).sort(), ['id', 'owner', 'type', 'x', 'y']);
+      // `priority` is on the wire deliberately: two players looking at the same penguin
+      // must see the same targeting rule, which is the identical-views guarantee.
+      assert.deepEqual(Object.keys(tower).sort(), ['id', 'owner', 'priority', 'type', 'x', 'y']);
     }
   });
 

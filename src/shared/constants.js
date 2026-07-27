@@ -91,6 +91,42 @@ export const STARTING_FISH = 150;
  */
 export const ICEBERG_HP = 25;
 
+// --- Targeting ---------------------------------------------------------------
+
+/**
+ * How a penguin chooses between the enemies within its range.
+ *
+ * `FIRST` is the default and the standard tower-defense rule: shoot whatever is closest
+ * to the objective, because that is what you are about to lose to. The others exist
+ * because one rule makes tower choice meaningless — a sniper firing 12 damage into a
+ * 25-hit-point Arctic Fox because it happens to be a step further along is wasting most
+ * of what you paid for.
+ *
+ * @readonly
+ */
+export const TARGET_PRIORITY = Object.freeze({
+  /** Furthest along the path. */
+  FIRST: 'first',
+  /** Least far along — hits a wave before it reaches the rest of your defence. */
+  LAST: 'last',
+  /** Most current hit points, so heavy damage lands on what can absorb it. */
+  STRONGEST: 'strongest',
+  /** Nearest to the penguin, which stays in range longest. */
+  CLOSEST: 'closest',
+});
+
+/** @type {ReadonlyArray<string>} */
+export const TARGET_PRIORITY_IDS = Object.freeze(Object.values(TARGET_PRIORITY));
+
+/**
+ * What a freshly placed penguin uses.
+ *
+ * Deliberately the pre-existing behaviour, so adding this feature changes no balance —
+ * the guard test in `test/game/balance.test.js` passes untouched, which is the evidence
+ * that targeting was made configurable rather than accidentally retuned.
+ */
+export const DEFAULT_TARGET_PRIORITY = TARGET_PRIORITY.FIRST;
+
 /** Waves in a full game. */
 export const TOTAL_WAVES = 15;
 

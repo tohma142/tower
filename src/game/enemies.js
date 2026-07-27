@@ -8,7 +8,7 @@
  * (the targeting question) a plain numeric comparison.
  */
 
-import { ENEMY_TYPES } from '../shared/constants.js';
+import { DEFAULT_TARGET_PRIORITY, ENEMY_TYPES, TARGET_PRIORITY } from '../shared/constants.js';
 import { PATH_LENGTH, positionAt } from '../shared/map.js';
 
 import { payBountyToAll } from './economy.js';
@@ -142,29 +142,56 @@ export function removeDeadEnemies(state) {
 }
 
 /**
- * Find the enemy furthest along the path within range of a point.
+ * How each priority scores a candidate. Highest score wins.
  *
- * "Furthest along" is the standard tower-defense targeting rule: shoot whatever is
- * closest to the objective, because that is what you are about to lose to.
+ * Expressed as scores rather than comparators so the selection loop stays a single pass
+ * with one shape, and so a new priority is one line here rather than a new branch in the
+ * hot path. `distanceSquared` is already computed for the range check, so `closest`
+ * costs nothing extra.
+ *
+ * @type {Readonly<Record<string, (enemy: Enemy, distanceSquared: number) => number>>}
+ */
+const PRIORITY_SCORE = Object.freeze({
+  [TARGET_PRIORITY.FIRST]: (enemy) => enemy.progress,
+  [TARGET_PRIORITY.LAST]: (enemy) => -enemy.progress,
+  [TARGET_PRIORITY.STRONGEST]: (enemy) => enemy.hp,
+  [TARGET_PRIORITY.CLOSEST]: (_enemy, distanceSquared) => -distanceSquared,
+});
+
+/**
+ * Find the enemy a penguin should shoot, among those within range of a point.
+ *
+ * Ties are broken by whichever candidate the enemy list reaches first, and that list is
+ * in spawn order — so the choice is deterministic without needing a tiebreak rule, which
+ * matters because every client must be able to agree on the result.
  *
  * @param {ReadonlyArray<Enemy>} enemies
  * @param {{ x: number, y: number }} origin
  * @param {number} rangeSquared Squared range, to avoid a square root per candidate.
+ * @param {string} [priority] One of TARGET_PRIORITY; unknown values fall back to the
+ *   default rather than leaving a penguin unable to shoot.
  * @returns {Enemy | null}
  */
-export function findTarget(enemies, origin, rangeSquared) {
+export function findTarget(enemies, origin, rangeSquared, priority = DEFAULT_TARGET_PRIORITY) {
+  const score = PRIORITY_SCORE[priority] ?? PRIORITY_SCORE[DEFAULT_TARGET_PRIORITY];
+
   /** @type {Enemy | null} */
   let best = null;
+  let bestScore = -Infinity;
 
   for (const enemy of enemies) {
     if (enemy.hp <= 0) continue;
-    if (best !== null && enemy.progress <= best.progress) continue;
 
     const pos = positionAt(enemy.progress);
     const dx = pos.x - origin.x;
     const dy = pos.y - origin.y;
-    if (dx * dx + dy * dy <= rangeSquared) {
+    const distanceSquared = dx * dx + dy * dy;
+    if (distanceSquared > rangeSquared) continue;
+
+    const value = score(enemy, distanceSquared);
+    if (best === null || value > bestScore) {
       best = enemy;
+      bestScore = value;
     }
   }
 

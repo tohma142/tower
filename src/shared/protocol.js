@@ -19,6 +19,7 @@ import {
   GRID_COLS,
   GRID_ROWS,
   ROOM_CODE_LENGTH,
+  TARGET_PRIORITY_IDS,
   TOWER_TYPE_IDS,
 } from './constants.js';
 
@@ -31,6 +32,8 @@ export const CLIENT_MSG = Object.freeze({
   HELLO: 'hello',
   /** Buy and place a penguin. */
   PLACE: 'place',
+  /** Change how a placed penguin picks its target. */
+  SET_TARGET: 'setTarget',
   /** Toggle this player's ready state during the build phase. */
   READY: 'ready',
   /** From the game-over screen, return the room to the lobby. */
@@ -67,6 +70,7 @@ export const REJECT_REASON = Object.freeze({
   WRONG_PHASE: 'wrongPhase',
   NOT_A_PLAYER: 'notAPlayer',
   UNKNOWN_TOWER_TYPE: 'unknownTowerType',
+  NO_TOWER_HERE: 'noTowerHere',
   ROOM_NOT_FOUND: 'roomNotFound',
   ROOM_FULL: 'roomFull',
 });
@@ -141,6 +145,11 @@ export const CLIENT_MSG_SPEC = Object.freeze({
     tileX: int(0, GRID_COLS - 1),
     tileY: int(0, GRID_ROWS - 1),
     towerType: oneOf(TOWER_TYPE_IDS),
+  }),
+  [CLIENT_MSG.SET_TARGET]: Object.freeze({
+    tileX: int(0, GRID_COLS - 1),
+    tileY: int(0, GRID_ROWS - 1),
+    priority: oneOf(TARGET_PRIORITY_IDS),
   }),
   [CLIENT_MSG.READY]: Object.freeze({
     value: bool(),

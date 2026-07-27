@@ -8,7 +8,7 @@
  * into a sentence is the one part of this file worth testing.
  */
 
-import { ENEMY_TYPES, TOWER_TYPES } from '../../shared/constants.js';
+import { ENEMY_TYPES, TARGET_PRIORITY, TOWER_TYPES } from '../../shared/constants.js';
 
 /**
  * Turn a server event into a line for the log, or null if it is not worth showing.
@@ -73,6 +73,7 @@ function describeRejection(reason, playerId) {
     case 'wrongPhase': return 'Not right now';
     case 'notAPlayer': return playerId === null ? 'Spectators cannot build' : 'You are not seated';
     case 'unknownTowerType': return 'No such penguin';
+    case 'noTowerHere': return 'No penguin on that tile';
 
     // These two normally arrive as a connection-level rejection and are shown on the
     // overlay rather than in the log. They are worded here anyway: the constant exists,
@@ -83,6 +84,35 @@ function describeRejection(reason, playerId) {
 
     default: return `Refused: ${reason}`;
   }
+}
+
+/**
+ * Player-facing wording for each targeting rule.
+ *
+ * Exported and kept pure for the same reason `describeEvent` is: these strings are the
+ * whole feature from the player's side, and "strongest" alone does not say strongest
+ * *what*. A rule with no wording would put a raw constant on a button.
+ *
+ * @type {Readonly<Record<string, { label: string, hint: string }>>}
+ */
+export const TARGET_PRIORITY_LABELS = Object.freeze({
+  [TARGET_PRIORITY.FIRST]: { label: 'First', hint: 'Whatever is closest to the iceberg' },
+  [TARGET_PRIORITY.LAST]: { label: 'Last', hint: 'Whatever just arrived' },
+  [TARGET_PRIORITY.STRONGEST]: { label: 'Strongest', hint: 'Whatever has the most health left' },
+  [TARGET_PRIORITY.CLOSEST]: { label: 'Closest', hint: 'Whatever is nearest this penguin' },
+});
+
+/**
+ * Wording for one targeting rule, falling back to the raw id.
+ *
+ * A newer server can add a rule this client has never heard of; showing the id beats
+ * showing "undefined" on a button the player is about to press.
+ *
+ * @param {string} priority
+ * @returns {{ label: string, hint: string }}
+ */
+export function describePriority(priority) {
+  return TARGET_PRIORITY_LABELS[priority] ?? { label: priority, hint: '' };
 }
 
 /** Lines kept in the event log. Older ones are simply gone. */
@@ -124,6 +154,9 @@ function buildHud(doc) {
   const readyButton = /** @type {HTMLButtonElement} */ (el('ready'));
   const shopButtons = el('shop-buttons');
   const shopHint = el('shop-hint');
+  const selection = el('selection');
+  const selectionName = el('selection-name');
+  const targetButtons = el('target-buttons');
   const overlay = el('overlay');
   const overlayTitle = el('overlay-title');
   const overlayBody = el('overlay-body');
@@ -131,6 +164,46 @@ function buildHud(doc) {
 
   return {
     elements: { readyButton, shopButtons, overlayAction, copyLink: el('copy-link') },
+
+    /**
+     * Build the targeting buttons once, from the constants rather than from HTML, so a
+     * new rule needs no markup edit.
+     *
+     * @param {(priority: string) => void} onSelect
+     * @returns {void}
+     */
+    buildTargetButtons(onSelect) {
+      targetButtons.replaceChildren();
+      for (const [id, { label, hint }] of Object.entries(TARGET_PRIORITY_LABELS)) {
+        const button = doc.createElement('button');
+        button.type = 'button';
+        button.dataset.priority = id;
+        button.textContent = label;
+        button.title = hint;
+        button.setAttribute('aria-pressed', 'false');
+        button.addEventListener('click', () => onSelect(id));
+        targetButtons.append(button);
+      }
+    },
+
+    /**
+     * Show which penguin is selected and how it is currently targeting.
+     *
+     * @param {{ name: string, priority: string, canEdit: boolean } | null} content
+     * @returns {void}
+     */
+    setSelection(content) {
+      if (content === null) {
+        selection.hidden = true;
+        return;
+      }
+      selection.hidden = false;
+      selectionName.textContent = content.name;
+      for (const button of targetButtons.querySelectorAll('button')) {
+        button.setAttribute('aria-pressed', String(button.dataset.priority === content.priority));
+        button.disabled = !content.canEdit;
+      }
+    },
 
     /** @param {string} code */
     setRoomCode(code) {

@@ -398,6 +398,8 @@ function round2(n) {
  * @property {number} x Tile column.
  * @property {number} y Tile row.
  * @property {string} owner
+ * @property {string} priority Targeting rule, on the wire so every client shows the same
+ *   setting for the same penguin.
  */
 
 /**
@@ -470,6 +472,7 @@ export function snapshot(state) {
       x: t.tileX,
       y: t.tileY,
       owner: t.ownerId,
+      priority: t.priority,
     })),
     projectiles: state.projectiles.map((p) => ({
       id: p.id,

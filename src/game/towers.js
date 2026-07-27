@@ -6,7 +6,8 @@
  * targeting rule (furthest along the path) and in cooldown accounting.
  */
 
-import { TOWER_TYPES } from '../shared/constants.js';
+import { DEFAULT_TARGET_PRIORITY, TOWER_TYPES } from '../shared/constants.js';
+import { tileKey } from '../shared/map.js';
 
 import { findTarget } from './enemies.js';
 import { createProjectile } from './projectiles.js';
@@ -22,6 +23,9 @@ import { createProjectile } from './projectiles.js';
  * @property {number} x          World coords of the tile centre.
  * @property {number} y
  * @property {number} cooldownMs Milliseconds until it may fire again.
+ * @property {string} priority   One of TARGET_PRIORITY: how it picks between enemies in
+ *                               range. Per-penguin, not per-type, because the useful
+ *                               setting depends on where it stands.
  * @property {import('../shared/constants.js').TowerType} spec
  */
 
@@ -56,12 +60,27 @@ export function createTower(state, { ownerId, type, tileX, tileY }) {
     // Ready immediately. Making a fresh penguin wait out a cooldown would punish
     // building mid-wave, which is exactly when a player is reacting to trouble.
     cooldownMs: 0,
+    priority: DEFAULT_TARGET_PRIORITY,
     spec,
   };
   state.nextId += 1;
 
   state.towers.push(tower);
   return tower;
+}
+
+/**
+ * Find the penguin standing on a tile.
+ *
+ * @param {import('./state.js').GameState} state
+ * @param {number} tileX
+ * @param {number} tileY
+ * @returns {Tower | undefined}
+ */
+export function towerAt(state, tileX, tileY) {
+  const id = state.occupancy.get(tileKey(tileX, tileY));
+  if (id === undefined) return undefined;
+  return state.towers.find((t) => t.id === id);
 }
 
 /**
@@ -88,7 +107,7 @@ export function updateTowers(state, dtMs) {
     }
 
     const rangeSquared = tower.spec.range * tower.spec.range;
-    const target = findTarget(state.enemies, tower, rangeSquared);
+    const target = findTarget(state.enemies, tower, rangeSquared, tower.priority);
     if (target === null) {
       tower.cooldownMs = 0;
       continue;
