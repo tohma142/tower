@@ -114,9 +114,39 @@ describe('ready gate', () => {
     assert.equal(allPlayersReady(state), true);
   });
 
+  it('stops waiting on a player who has idled out', () => {
+    const state = makeGame({ players: ['a', 'b'] });
+    player(state, 'a').ready = true;
+
+    assert.equal(allPlayersReady(state), false, 'b is present and has not readied');
+    player(state, 'b').idle = true;
+    assert.equal(allPlayersReady(state), true);
+  });
+
+  it('still counts the readiness of a player who has since gone quiet', () => {
+    // Readying is a decision, not a heartbeat. Requiring the ready player to also be
+    // active would deadlock a team that all readies and then talks for a minute.
+    const state = makeGame({ players: ['a', 'b'] });
+    player(state, 'a').ready = true;
+    player(state, 'a').idle = true;
+    player(state, 'b').idle = true;
+
+    assert.equal(allPlayersReady(state), true);
+  });
+
+  it('refuses to start when everyone has idled out without readying', () => {
+    // Otherwise "nobody is blocking" is vacuously true and an abandoned room plays
+    // itself through fifteen waves to a loss.
+    const state = makeGame({ players: ['a', 'b'] });
+    player(state, 'a').idle = true;
+    player(state, 'b').idle = true;
+
+    assert.equal(allPlayersReady(state), false);
+  });
+
   it('excludes disconnected players so one dropout cannot stall the game', () => {
-    // The gate has no timeout by design, so this exclusion is what keeps it from
-    // deadlocking the moment someone's wifi blips.
+    // The gate excludes absence in two forms — disconnected here, idled above — so a
+    // room never deadlocks on somebody who is not there.
     const state = makeGame({ players: ['a', 'b'] });
     player(state, 'a').ready = true;
 

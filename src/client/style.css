@@ -228,6 +228,8 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 #roster li[data-connected='false'] { color: var(--dim); text-decoration: line-through; }
 #roster li[data-you='true'] .who::after { content: ' (you)'; color: var(--dim); }
 #roster .ready { color: var(--bright); }
+#roster .counting { color: var(--bright); }
+#roster .idle { color: var(--dim); font-style: italic; }
 
 #ready {
   width: 100%;

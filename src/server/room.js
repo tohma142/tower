@@ -31,6 +31,7 @@ import {
   tick as tickGame,
 } from '../game/state.js';
 import {
+  AFK_TIMEOUT_MS,
   MAX_PLAYERS,
   MAX_SPECTATORS,
   PHASE,
@@ -64,6 +65,9 @@ const MAX_QUEUED_COMMANDS = 256;
  * @property {number} index
  * @property {string | null} connectionId
  * @property {number | null} disconnectedAt Timestamp the seat was vacated, or null.
+ * @property {number} lastActivityMs Timestamp of the last thing this player did. Drives
+ *                                   the idle timeout that stops one absent player from
+ *                                   stalling the ready gate for everyone else.
  */
 
 /**
@@ -75,10 +79,21 @@ const MAX_QUEUED_COMMANDS = 256;
  * @typedef {object} Roster
  * @property {string} type
  * @property {string} roomCode
- * @property {Array<{ playerId: string, name: string, connected: boolean }>} players
+ * @property {Array<{ playerId: string, name: string, connected: boolean, idle: boolean,
+ *   afkInMs: number | null }>} players
  * @property {number} spectators
  * @property {string[]} waitingOn Connected players the ready gate is still waiting for.
  */
+
+/**
+ * Round a countdown to whole seconds, preserving null.
+ *
+ * @param {number | null} ms
+ * @returns {number | null}
+ */
+function roundToSecond(ms) {
+  return ms === null ? null : Math.ceil(ms / 1000) * 1000;
+}
 
 /**
  * @typedef {object} JoinResult
@@ -114,6 +129,16 @@ export function createRoom({ code, newToken, logger }) {
   let lastOccupiedAt = 0;
 
   /**
+   * The clock as of the most recent tick.
+   *
+   * Paths that react to a message rather than to the tick — queueing a command, promoting
+   * a spectator — need a timestamp but are not handed one, and reading a real clock in
+   * them would put wall-time back into code the tests drive with an injected one. A tick
+   * is at most 50ms old, which is far below the resolution anything here cares about.
+   */
+  let lastTickMs = 0;
+
+  /**
    * Set when the roster changes between ticks, so the next tick republishes it.
    *
    * Deferring to the tick rather than broadcasting inline keeps every outbound message
@@ -143,6 +168,11 @@ export function createRoom({ code, newToken, logger }) {
           playerId: seat.playerId,
           name: seat.name,
           connected: seat.connectionId !== null,
+          idle: state.players.get(seat.playerId)?.idle ?? false,
+          // Rounded to whole seconds: this is a countdown a human reads, and sending
+          // millisecond precision would rebuild the roster list sixty times a second
+          // to change a digit nobody can see.
+          afkInMs: roundToSecond(afkInMs(seat, lastTickMs)),
         })),
       spectators: spectators.size,
       waitingOn: state.phase === PHASE.BUILD || state.phase === PHASE.LOBBY
@@ -181,6 +211,9 @@ export function createRoom({ code, newToken, logger }) {
     if (held !== undefined && held.connectionId === null) {
       held.connectionId = connection.id;
       held.disconnectedAt = null;
+      // Coming back is activity. Without this a player who reconnects after a long
+      // absence is idle on arrival and the gate ignores them.
+      held.lastActivityMs = nowMs;
       setConnected(state, held.playerId, true);
 
       logger.info('seat reclaimed', { room: code, playerId: held.playerId });
@@ -198,6 +231,7 @@ export function createRoom({ code, newToken, logger }) {
         index,
         connectionId: connection.id,
         disconnectedAt: null,
+        lastActivityMs: nowMs,
       };
       seats.set(seat.token, seat);
       addPlayer(state, seat.playerId, seat.name);
@@ -276,6 +310,12 @@ export function createRoom({ code, newToken, logger }) {
       return;
     }
 
+    // Any command counts as being present, including un-readying — the gate exists to
+    // route around absence, not to punish someone who changes their mind slowly. Set
+    // before the queue bound below, so a player whose clicks are being dropped for
+    // flooding is still unmistakably here.
+    seat.lastActivityMs = lastTickMs;
+
     if (msg.type === 'playAgain') {
       if (state.phase === PHASE.GAME_OVER) promoteAndReset();
       return;
@@ -290,6 +330,47 @@ export function createRoom({ code, newToken, logger }) {
     }
 
     queue.push({ connectionId, playerId: seat.playerId, msg });
+  }
+
+  /**
+   * Mark connected-but-inactive players idle, so the ready gate stops waiting on them.
+   *
+   * Recomputed from scratch every tick rather than latched, so acting again clears it
+   * immediately — a player who comes back should not have to wait out a second timer.
+   *
+   * @param {number} nowMs
+   * @returns {boolean} True when anyone's idle state changed, so the roster is republished.
+   */
+  function refreshIdle(nowMs) {
+    let changed = false;
+
+    for (const seat of seats.values()) {
+      const player = state.players.get(seat.playerId);
+      if (player === undefined) continue;
+
+      const idle =
+        seat.connectionId !== null && nowMs - seat.lastActivityMs >= AFK_TIMEOUT_MS;
+
+      if (player.idle !== idle) {
+        player.idle = idle;
+        changed = true;
+      }
+    }
+
+    return changed;
+  }
+
+  /**
+   * Milliseconds until a seat idles out, or null when the question does not apply.
+   *
+   * @param {Seat} seat
+   * @param {number} nowMs
+   * @returns {number | null}
+   */
+  function afkInMs(seat, nowMs) {
+    if (seat.connectionId === null) return null;
+    const remaining = AFK_TIMEOUT_MS - (nowMs - seat.lastActivityMs);
+    return remaining > 0 ? remaining : null;
   }
 
   /**
@@ -314,6 +395,9 @@ export function createRoom({ code, newToken, logger }) {
         index,
         connectionId,
         disconnectedAt: null,
+        // Being promoted out of the gallery counts as arriving, not as having sat idle
+        // for however long the previous game lasted.
+        lastActivityMs: lastTickMs,
       };
       seats.set(seat.token, seat);
       addPlayer(state, seat.playerId, seat.name);
@@ -368,6 +452,7 @@ export function createRoom({ code, newToken, logger }) {
    * @returns {void}
    */
   function tick(nowMs, dtMs) {
+    lastTickMs = nowMs;
     if (connections.size > 0) lastOccupiedAt = nowMs;
 
     // Apply queued commands first, in arrival order. Anything rejected is reported only
@@ -386,7 +471,7 @@ export function createRoom({ code, newToken, logger }) {
       }
     }
 
-    const rosterChanged = expireSeats(nowMs);
+    const rosterChanged = expireSeats(nowMs) || refreshIdle(nowMs);
 
     // The ready gate. In the lobby it starts the game; between waves it sends the next
     // one. Both require every *connected* player, so a dropout cannot stall the room.

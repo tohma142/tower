@@ -112,6 +112,14 @@ function describeRejection(reason, playerId) {
   }
 }
 
+/**
+ * How long before a player idles out the roster starts showing a countdown.
+ *
+ * Shorter than the timeout itself on purpose: the number is a warning that the gate is
+ * about to move on, not a clock on how long someone is allowed to think.
+ */
+const AFK_WARNING_MS = 15_000;
+
 /** Lines kept in the event log. Older ones are simply gone. */
 const MAX_LOG_LINES = 8;
 
@@ -304,9 +312,19 @@ function buildHud(doc) {
         const player = view?.players.find((p) => p.id === entry.playerId);
         if (!entry.connected) {
           state.textContent = 'away';
+        } else if (entry.idle) {
+          // Not "away": they are still connected and can act at any moment. The word
+          // has to say the gate stopped waiting, not that they left.
+          state.className = 'idle';
+          state.textContent = 'not waiting';
         } else if (player?.ready) {
           state.className = 'ready';
           state.textContent = 'ready';
+        } else if (typeof entry.afkInMs === 'number' && entry.afkInMs <= AFK_WARNING_MS) {
+          // Only inside the last stretch. A countdown running the whole minute would
+          // read as a shot clock on a player who is simply thinking.
+          state.className = 'counting';
+          state.textContent = `${Math.ceil(entry.afkInMs / 1000)}s`;
         } else {
           state.textContent = player === undefined ? '' : `${player.fish}`;
         }

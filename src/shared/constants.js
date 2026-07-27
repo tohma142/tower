@@ -63,6 +63,19 @@ export const MAX_SPECTATORS = 8;
  *  and their unspent fish forfeited. */
 export const RECONNECT_GRACE_MS = 60_000;
 
+/**
+ * How long a connected player may do nothing before the ready gate stops waiting on them.
+ *
+ * The gate needs every connected player, which means one person who wanders off stalls
+ * everyone else indefinitely. Idling them out is the smallest fix that keeps the gate's
+ * point — you still cannot start a wave while someone is actively deciding.
+ *
+ * Generous on purpose: the build phase is where the thinking happens, and cutting off
+ * someone mid-decision is a worse failure than waiting a little longer for someone who
+ * has genuinely left.
+ */
+export const AFK_TIMEOUT_MS = 60_000;
+
 /** How long a room with zero connections survives before it is destroyed. */
 export const ROOM_EMPTY_GC_MS = 60_000;
 
