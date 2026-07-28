@@ -19,10 +19,11 @@ import { isBuildable } from '../shared/map.js';
 
 import { log, setLogLevel } from './log.js';
 import { createConnection } from './net.js';
-import { drawBoard, drawEntities, drawGhost, drawTowerRanges } from './render/draw.js';
+import { drawBoard, drawEntities, drawGhost, drawStatCard, drawTowerRanges } from './render/draw.js';
 import { createHud, describeEvent } from './render/hud.js';
 import { sampleAt } from './render/interpolate.js';
 import { compileAll } from './render/sprites.js';
+import { cardTitle, statLines } from './render/stats.js';
 import { canvasSize, eventToTile } from './render/view.js';
 
 setLogLevel(new URLSearchParams(location.search).get('log'));
@@ -326,7 +327,9 @@ function frame() {
   if (view === null) return;
   ui.latestView = view;
 
-  if (ui.selectedTower !== null) drawTowerRanges(ctx, view, RENDER_SCALE);
+  if (ui.selectedTower !== null || ui.selectedTile !== null) {
+    drawTowerRanges(ctx, view, RENDER_SCALE);
+  }
 
   drawEntities(ctx, view, sprites, RENDER_SCALE, ui.roster.players.map((/** @type {any} */ p) => p.playerId));
 
@@ -341,6 +344,34 @@ function frame() {
       sprites.penguins,
       RENDER_SCALE,
     );
+
+    // The card follows the ghost, so the stats you are reading belong to the penguin you
+    // are about to place rather than to whatever is selected in the shop list.
+    const spec = TOWER_TYPES[ui.selectedTower];
+    if (spec !== undefined) {
+      drawStatCard(
+        ctx,
+        { tile: ui.hoverTile, title: cardTitle(spec, 1), lines: statLines(spec, 1) },
+        RENDER_SCALE,
+      );
+    }
+  }
+
+  // A placed penguin's card, drawn last so nothing overlaps it.
+  if (ui.selectedTile !== null) {
+    const tower = towerAtTile(view, ui.selectedTile);
+    const spec = tower === undefined ? undefined : TOWER_TYPES[tower.type];
+    if (tower !== undefined && spec !== undefined) {
+      drawStatCard(
+        ctx,
+        {
+          tile: ui.selectedTile,
+          title: cardTitle(spec, tower.level),
+          lines: statLines(spec, tower.level),
+        },
+        RENDER_SCALE,
+      );
+    }
   }
 
   hud.updateVitals(view, connection.playerId());
