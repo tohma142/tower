@@ -161,11 +161,18 @@ export const SELL_REFUND_RATE = 0.7;
  *
  * Floored, so a sell-and-rebuy cycle can never manufacture fish out of rounding.
  *
+ * The product is snapped to whole fish before flooring, because binary floating point
+ * puts `90 * 0.7` at 62.99999999999999 and a bare floor pays 62 for a penguin worth 63.
+ * Upgrades are what made that reachable: no base tower cost lands on an affected total,
+ * but a cost plus an upgrade does, and 90 is a Pistol upgraded once. The snap only ever
+ * absorbs error of order 1e-13, so it cannot round a genuine 62.9 up to 63.
+ *
  * @param {number} invested Total fish sunk into the penguin.
  * @returns {number} Fish returned, never negative.
  */
 export function sellRefundFor(invested) {
-  return Math.max(0, Math.floor(invested * SELL_REFUND_RATE));
+  const exact = Math.round(invested * SELL_REFUND_RATE * 1e6) / 1e6;
+  return Math.max(0, Math.floor(exact));
 }
 
 /** Waves in a full game. */

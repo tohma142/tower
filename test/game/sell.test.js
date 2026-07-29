@@ -300,3 +300,30 @@ describe('sell — with upgrades', () => {
     assert.equal(sold?.refund, player(state, 'p1').fish - paid);
   });
 });
+
+describe('sell — refund arithmetic', () => {
+  it('does not lose a fish to binary floating point', () => {
+    // 90 * 0.7 is 62.99999999999999 in IEEE754, so a bare floor pays 62. 90 is a Pistol
+    // upgraded once — the most ordinary sell in the game — and it only became reachable
+    // when upgrades started adding to `invested`.
+    assert.equal(sellRefundFor(90), 63);
+  });
+
+  it('pays exactly 70% floored, at every total a penguin can reach', () => {
+    // Driven over the range rather than at the one value that caught it, because the
+    // failure is a property of the arithmetic and 90 is not the only total affected.
+    for (let invested = 0; invested <= 2000; invested += 1) {
+      assert.equal(
+        sellRefundFor(invested),
+        Math.floor(Math.round(invested * 7) / 10),
+        `refund for ${invested} invested`,
+      );
+    }
+  });
+
+  it('never pays back more than was put in', () => {
+    for (let invested = 0; invested <= 2000; invested += 1) {
+      assert.ok(sellRefundFor(invested) < invested || invested === 0);
+    }
+  });
+});
