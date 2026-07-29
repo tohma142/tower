@@ -9,9 +9,18 @@
  * Numbers here are the unit's *current* values, not its table values. A level-2 Sniper
  * reports 21 damage, because a card that showed 12 while the penguin hit for 21 would be
  * worse than no card at all.
+ *
+ * Where the next level would change a number, the card shows both — `21 → 36` — so the
+ * question the player is actually asking ("is this upgrade worth 96 fish?") is answered
+ * on the card instead of in their head.
  */
 
-import { MAX_TOWER_LEVEL, isCombatTower, levelMultiplier } from '../../shared/constants.js';
+import {
+  MAX_TOWER_LEVEL,
+  isCombatTower,
+  levelMultiplier,
+  upgradeCostFor,
+} from '../../shared/constants.js';
 
 /**
  * Trim a computed stat to something a player can read.
@@ -41,11 +50,34 @@ export function cardTitle(spec, level = 1) {
 }
 
 /**
+ * A stat's current value, and where upgrading would take it.
+ *
+ * The arrow appears only when the number actually moves. A `7 → 7` row is noise dressed
+ * up as information, and at the level cap there is nothing to preview at all.
+ *
+ * @param {string} label
+ * @param {number} base Table value at level 1.
+ * @param {number} multiplier Multiplier at the current level.
+ * @param {number | null} nextMultiplier Multiplier one level up, or null at the cap.
+ * @returns {{ label: string, value: string }}
+ */
+function growthRow(label, base, multiplier, nextMultiplier) {
+  const now = formatStat(base * multiplier);
+  if (nextMultiplier === null) return { label, value: now };
+
+  const next = formatStat(base * nextMultiplier);
+  return { label, value: next === now ? now : `${now} → ${next}` };
+}
+
+/**
  * The stat rows for a unit at a given level.
  *
  * A combat unit reports what it does to enemies; a support unit reports what it pays.
  * Listing damage as `0` for a Fisher would be technically true and actively misleading —
  * it reads as a broken gun rather than as a unit that has no gun.
+ *
+ * Every unit gets an `upgrade` row: the price of the next level, or `maxed` at the cap.
+ * A preview of what an upgrade buys is worth little without what it costs.
  *
  * @param {import('../../shared/constants.js').TowerType} spec
  * @param {number} [level]
@@ -53,21 +85,32 @@ export function cardTitle(spec, level = 1) {
  */
 export function statLines(spec, level = 1) {
   const multiplier = levelMultiplier(level);
+  const nextMultiplier = level < MAX_TOWER_LEVEL ? levelMultiplier(level + 1) : null;
+
+  /** @type {Array<{ label: string, value: string }>} */
+  const rows = [];
 
   if (!isCombatTower(spec)) {
-    return [{ label: 'fish/wave', value: formatStat(spec.income * multiplier) }];
+    rows.push(growthRow('fish/wave', spec.income, multiplier, nextMultiplier));
+  } else {
+    rows.push(growthRow('dmg', spec.damage, multiplier, nextMultiplier));
+    rows.push({ label: 'rng', value: formatStat(spec.range) });
+    rows.push({ label: 'rate', value: `${formatStat(spec.fireRate)}/s` });
+
+    // Only when it has one. A `splash 0` row on the Pistol is a row that never changes and
+    // never matters, and every row costs height on a card that sits over the board.
+    if (spec.splashRadius > 0) {
+      rows.push({ label: 'splash', value: formatStat(spec.splashRadius) });
+    }
   }
 
-  const rows = [
-    { label: 'dmg', value: formatStat(spec.damage * multiplier) },
-    { label: 'rng', value: formatStat(spec.range) },
-    { label: 'rate', value: `${formatStat(spec.fireRate)}/s` },
-  ];
-
-  // Only when it has one. A `splash 0` row on the Pistol is a row that never changes and
-  // never matters, and every row costs height on a card that sits over the board.
-  if (spec.splashRadius > 0) {
-    rows.push({ label: 'splash', value: formatStat(spec.splashRadius) });
+  if (MAX_TOWER_LEVEL > 1) {
+    // Read from the cap rather than from `upgradeCostFor` returning Infinity, so the card
+    // can never print the string "Infinity" at a player.
+    rows.push({
+      label: 'upgrade',
+      value: nextMultiplier === null ? 'maxed' : String(upgradeCostFor(spec, level)),
+    });
   }
 
   return rows;

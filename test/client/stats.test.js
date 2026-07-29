@@ -22,6 +22,7 @@ import {
   TOWER_TYPE_IDS,
   isCombatTower,
   levelMultiplier,
+  upgradeCostFor,
 } from '../../src/shared/constants.js';
 
 /** A card big enough to exercise the flipping, in a board 20x12 tiles at 48px. */
@@ -34,7 +35,9 @@ describe('statLines', () => {
     const rows = statLines(TOWER_TYPES.sniper, 1);
     const byLabel = Object.fromEntries(rows.map((r) => [r.label, r.value]));
 
-    assert.equal(byLabel.dmg, '12');
+    // Damage carries its upgrade preview; range and rate do not move with level, so they
+    // read as plain numbers.
+    assert.equal(byLabel.dmg, '12 → 21');
     assert.equal(byLabel.rng, '7');
     assert.equal(byLabel.rate, '0.5/s');
   });
@@ -43,11 +46,12 @@ describe('statLines', () => {
     // The whole point of the card. Showing 12 while the penguin hits for 21 would be
     // worse than showing nothing.
     const base = statLines(TOWER_TYPES.sniper, 1).find((r) => r.label === 'dmg');
-    const upgraded = statLines(TOWER_TYPES.sniper, 2).find((r) => r.label === 'dmg');
+    const capped = statLines(TOWER_TYPES.sniper, MAX_TOWER_LEVEL).find(
+      (r) => r.label === 'dmg',
+    );
 
-    assert.equal(base?.value, '12');
-    assert.equal(upgraded?.value, String(12 * levelMultiplier(2)));
-    assert.notEqual(base?.value, upgraded?.value);
+    assert.ok(base?.value.startsWith('12 '), `L1 read ${base?.value}`);
+    assert.equal(capped?.value, String(12 * levelMultiplier(MAX_TOWER_LEVEL)));
   });
 
   it('reports a support unit by what it pays, not by its damage', () => {
@@ -55,8 +59,8 @@ describe('statLines', () => {
     // as a broken gun rather than as a unit that has no gun.
     const rows = statLines(TOWER_TYPES.fisher, 1);
 
-    assert.deepEqual(rows.map((r) => r.label), ['fish/wave']);
-    assert.equal(rows[0].value, String(TOWER_TYPES.fisher.income));
+    assert.deepEqual(rows.map((r) => r.label), ['fish/wave', 'upgrade']);
+    assert.ok(rows[0].value.startsWith(String(TOWER_TYPES.fisher.income)));
   });
 
   it('scales a support unit\'s payout with level too', () => {
@@ -66,6 +70,66 @@ describe('statLines', () => {
       rows[0].value,
       String(TOWER_TYPES.fisher.income * levelMultiplier(MAX_TOWER_LEVEL)),
     );
+  });
+
+  it('previews what the next level buys, for output stats', () => {
+    // The question a player is actually asking is "what do I get for the money", and
+    // the answer is on the card rather than in their head.
+    const dmg = statLines(TOWER_TYPES.pistol, 1).find((r) => r.label === 'dmg');
+    const pay = statLines(TOWER_TYPES.fisher, 2).find((r) => r.label === 'fish/wave');
+
+    assert.equal(
+      dmg?.value,
+      `${TOWER_TYPES.pistol.damage} → ${TOWER_TYPES.pistol.damage * levelMultiplier(2)}`,
+    );
+    assert.equal(
+      pay?.value,
+      `${TOWER_TYPES.fisher.income * levelMultiplier(2)} → `
+        + `${TOWER_TYPES.fisher.income * levelMultiplier(3)}`,
+    );
+  });
+
+  it('never previews a stat that upgrading does not change', () => {
+    // An arrow on `rng` would promise a longer reach that no upgrade delivers. Only
+    // damage and income scale with level (see towers.js), so only they get an arrow.
+    for (const id of TOWER_TYPE_IDS) {
+      for (let level = 1; level <= MAX_TOWER_LEVEL; level += 1) {
+        for (const { label, value } of statLines(TOWER_TYPES[id], level)) {
+          if (label === 'dmg' || label === 'fish/wave') continue;
+          assert.equal(value.includes('→'), false, `${id} L${level} ${label}: ${value}`);
+        }
+      }
+    }
+  });
+
+  it('previews nothing once a unit is at the cap', () => {
+    for (const id of TOWER_TYPE_IDS) {
+      for (const { label, value } of statLines(TOWER_TYPES[id], MAX_TOWER_LEVEL)) {
+        assert.equal(value.includes('→'), false, `${id} maxed ${label}: ${value}`);
+      }
+    }
+  });
+
+  it('prices the upgrade from the same table the server charges from', () => {
+    // A card that quotes a price the server does not honour is worse than a card with no
+    // price on it at all.
+    for (const id of TOWER_TYPE_IDS) {
+      for (let level = 1; level < MAX_TOWER_LEVEL; level += 1) {
+        const row = statLines(TOWER_TYPES[id], level).find((r) => r.label === 'upgrade');
+        assert.equal(row?.value, String(upgradeCostFor(TOWER_TYPES[id], level)));
+      }
+    }
+  });
+
+  it('says maxed rather than quoting a price that cannot be paid', () => {
+    // `upgradeCostFor` returns Infinity at the cap, and "upgrade Infinity" on a card is
+    // a bug wearing a number's clothes.
+    for (const id of TOWER_TYPE_IDS) {
+      const row = statLines(TOWER_TYPES[id], MAX_TOWER_LEVEL).find(
+        (r) => r.label === 'upgrade',
+      );
+      assert.equal(row?.value, 'maxed');
+    }
   });
 
   it('shows splash only on units that have it', () => {
