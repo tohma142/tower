@@ -189,6 +189,18 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 
 #upgrade { width: 100%; }
 
+#shop-stats {
+  margin: 0.6rem 0 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.15rem 0.75rem;
+  font-size: 0.78rem;
+}
+
+#shop-stats[hidden] { display: none; }
+#shop-stats dt { color: var(--dim); }
+#shop-stats dd { margin: 0; text-align: right; color: var(--text); }
+
 #shop-hint, #waiting-on {
   margin: 0.6rem 0 0;
   color: var(--dim);

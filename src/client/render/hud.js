@@ -10,6 +10,8 @@
 
 import { ENEMY_TYPES, TOWER_TYPES, isCombatTower } from '../../shared/constants.js';
 
+import { statLines } from './stats.js';
+
 /**
  * Turn a server event into a line for the log, or null if it is not worth showing.
  *
@@ -145,6 +147,7 @@ function buildHud(doc) {
   const readyButton = /** @type {HTMLButtonElement} */ (el('ready'));
   const shopButtons = el('shop-buttons');
   const shopHint = el('shop-hint');
+  const shopStats = el('shop-stats');
   const selection = el('selection');
   const selectionName = el('selection-name');
   const upgradeButton = /** @type {HTMLButtonElement} */ (el('upgrade'));
@@ -229,6 +232,21 @@ function buildHud(doc) {
       shopHint.textContent = selected === null
         ? 'Pick a penguin, then click a tile.'
         : `Click a tile to place the ${TOWER_TYPES[selected]?.name ?? selected}.`;
+
+      // The same rows the board card shows, so a player can compare two units without
+      // hovering the board — and so the two readouts can never disagree.
+      const spec = selected === null ? undefined : TOWER_TYPES[selected];
+      shopStats.replaceChildren();
+      shopStats.hidden = spec === undefined;
+      if (spec !== undefined) {
+        for (const { label, value } of statLines(spec, 1)) {
+          const dt = doc.createElement('dt');
+          dt.textContent = label;
+          const dd = doc.createElement('dd');
+          dd.textContent = value;
+          shopStats.append(dt, dd);
+        }
+      }
     },
 
     /**
