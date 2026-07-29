@@ -174,7 +174,22 @@ export const PHASE = Object.freeze({
  * @property {number} fireRate     Shots per second.
  * @property {number} splashRadius Tiles; 0 means single-target.
  * @property {number} projectileSpeed Tiles per second.
+ * @property {number} income      Fish paid to every player each time a wave is cleared.
+ *                                Zero for everything that shoots.
  */
+
+/**
+ * Whether a penguin is one that shoots.
+ *
+ * The distinction is `damage`, not a category flag, because damage is the thing every
+ * caller actually cares about — a flag could disagree with the stats beside it.
+ *
+ * @param {TowerType} spec
+ * @returns {boolean}
+ */
+export function isCombatTower(spec) {
+  return spec.damage > 0;
+}
 
 /** @type {Readonly<Record<string, TowerType>>} */
 export const TOWER_TYPES = Object.freeze({
@@ -187,6 +202,7 @@ export const TOWER_TYPES = Object.freeze({
     fireRate: 3,
     splashRadius: 0,
     projectileSpeed: 14,
+    income: 0,
   }),
   sniper: Object.freeze({
     id: 'sniper',
@@ -197,6 +213,7 @@ export const TOWER_TYPES = Object.freeze({
     fireRate: 0.5,
     splashRadius: 0,
     projectileSpeed: 30,
+    income: 0,
   }),
   bomber: Object.freeze({
     id: 'bomber',
@@ -207,6 +224,31 @@ export const TOWER_TYPES = Object.freeze({
     fireRate: 0.7,
     splashRadius: 1,
     projectileSpeed: 8,
+    income: 0,
+  }),
+  /**
+   * The Fisher does not shoot. It catches fish, paying every player at the end of each
+   * wave — the economy equivalent of a tower, and the first thing in this game that
+   * money can be spent on other than more guns.
+   *
+   * Its real cost is not the 100 fish, it is the *tile*. High-coverage tiles are scarce,
+   * and putting a Fisher on one trades defence now for money later. That is the decision
+   * the unit exists to create; a Fisher tucked in a useless corner should be close to
+   * free, and it is.
+   *
+   * Priced to repay itself in five waves at 20 a wave, so buying one is clearly right
+   * early and clearly wrong on wave 14.
+   */
+  fisher: Object.freeze({
+    id: 'fisher',
+    name: 'Fisher',
+    cost: 100,
+    range: 0,
+    damage: 0,
+    fireRate: 0,
+    splashRadius: 0,
+    projectileSpeed: 0,
+    income: 20,
   }),
 });
 

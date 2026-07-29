@@ -23,7 +23,7 @@ import {
 import { payBountyToAll } from './economy.js';
 import { advanceEnemies, removeDeadEnemies, spawnEnemy } from './enemies.js';
 import { advanceProjectiles } from './projectiles.js';
-import { updateTowers } from './towers.js';
+import { totalIncome, updateTowers } from './towers.js';
 import { buildSpawnSchedule, waveEnemyCount } from './waves.js';
 
 /**
@@ -45,6 +45,7 @@ import { buildSpawnSchedule, waveEnemyCount } from './waves.js';
  * @property {any} [wave]
  * @property {any} [outcome]
  * @property {any} [bonus] Fish paid to each player for clearing a wave.
+ * @property {any} [income] Fish paid to each player by their Fishers.
  */
 
 /**
@@ -344,7 +345,12 @@ export function tick(state, dtMs) {
     const bonus = waveClearBonus(state.wave);
     payBountyToAll(state, bonus);
 
-    state.events.push({ kind: 'waveCleared', wave: state.wave, bonus });
+    // Fishers pay out here rather than continuously, so the money arrives as a single
+    // legible number a player can weigh against the cost of another gun.
+    const income = totalIncome(state);
+    if (income > 0) payBountyToAll(state, income);
+
+    state.events.push({ kind: 'waveCleared', wave: state.wave, bonus, income });
   }
 }
 

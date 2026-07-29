@@ -8,7 +8,7 @@
  * into a sentence is the one part of this file worth testing.
  */
 
-import { ENEMY_TYPES, TOWER_TYPES } from '../../shared/constants.js';
+import { ENEMY_TYPES, TOWER_TYPES, isCombatTower } from '../../shared/constants.js';
 
 /**
  * Turn a server event into a line for the log, or null if it is not worth showing.
@@ -27,9 +27,11 @@ export function describeEvent(event, playerId = null) {
     case 'waveCleared':
       // The bonus is a real part of the economy — a player who cannot see it arriving
       // has no way to plan around it.
-      return event.bonus > 0
-        ? `Wave ${event.wave} cleared (+${event.bonus} fish each)`
-        : `Wave ${event.wave} cleared`;
+      // Fisher income is reported separately from the survival bonus rather than summed,
+      // because they answer different questions: one is what surviving pays, the other
+      // is what your investment paid, and a player deciding whether to build another
+      // Fisher needs the second number on its own.
+      return describeWaveCleared(event);
 
     case 'leak':
       // The event carries the type id; the player should see the creature's name. Same
@@ -56,6 +58,20 @@ export function describeEvent(event, playerId = null) {
     default:
       return null;
   }
+}
+
+/**
+ * @param {any} event
+ * @returns {string}
+ */
+function describeWaveCleared(event) {
+  const parts = [];
+  if (event.bonus > 0) parts.push(`+${event.bonus} fish each`);
+  if (event.income > 0) parts.push(`+${event.income} from your Fishers`);
+
+  return parts.length === 0
+    ? `Wave ${event.wave} cleared`
+    : `Wave ${event.wave} cleared (${parts.join(', ')})`;
 }
 
 /**
@@ -158,7 +174,9 @@ function buildHud(doc) {
         button.className = 'shop-button';
         button.dataset.tower = id;
         button.setAttribute('aria-pressed', 'false');
-        button.title = `range ${spec.range}, damage ${spec.damage}, ${spec.fireRate}/sec`;
+        button.title = isCombatTower(spec)
+          ? `range ${spec.range}, damage ${spec.damage}, ${spec.fireRate}/sec`
+          : `+${spec.income} fish to every player each wave`;
 
         const name = doc.createElement('span');
         name.textContent = spec.name;

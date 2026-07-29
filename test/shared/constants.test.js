@@ -13,6 +13,7 @@ import {
   RENDER_DELAY_MS,
   WAVES,
   hpScaleFor,
+  isCombatTower,
 } from '../../src/shared/constants.js';
 
 describe('tuning tables', () => {
@@ -58,16 +59,53 @@ describe('tuning tables', () => {
     assert.ok(weight(WAVES[7]) > weight(WAVES[0]), 'mid game should exceed the opener');
   });
 
-  it('describes every tower with positive, usable stats', () => {
+  it('gives every tower an id that matches its key, and a real price', () => {
     for (const id of TOWER_TYPE_IDS) {
       const tower = TOWER_TYPES[id];
       assert.equal(tower.id, id, 'tower id must match its table key');
       assert.ok(tower.cost > 0, `${id} must cost something`);
+      assert.ok(tower.splashRadius >= 0, `${id} splash cannot be negative`);
+    }
+  });
+
+  it('describes every combat tower with the stats it needs to shoot', () => {
+    // Split from the check above once support towers existed. A combat tower with a
+    // fireRate of zero would divide by zero in the cooldown; one with no range would
+    // silently never fire.
+    for (const id of TOWER_TYPE_IDS) {
+      const tower = TOWER_TYPES[id];
+      if (!isCombatTower(tower)) continue;
+
       assert.ok(tower.range > 0, `${id} must have range`);
-      assert.ok(tower.damage > 0, `${id} must do damage`);
       assert.ok(tower.fireRate > 0, `${id} must fire`);
       assert.ok(tower.projectileSpeed > 0, `${id} projectiles must move`);
-      assert.ok(tower.splashRadius >= 0, `${id} splash cannot be negative`);
+      assert.equal(tower.income, 0, `${id} shoots, so it must not also print money`);
+    }
+  });
+
+  it('gives every support tower an actual payout', () => {
+    // The other half of the split, and the more important one: a tower that neither
+    // shoots nor pays is a tile you can buy for nothing in return, and nothing else in
+    // the codebase would notice.
+    const support = TOWER_TYPE_IDS.filter((id) => !isCombatTower(TOWER_TYPES[id]));
+    assert.ok(support.length > 0, 'this test is vacuous without at least one');
+
+    for (const id of support) {
+      assert.ok(TOWER_TYPES[id].income > 0, `${id} does not shoot, so it must pay`);
+    }
+  });
+
+  it('prices support towers to pay back within a game', () => {
+    // A payback longer than the game is a unit nobody can ever correctly buy.
+    for (const id of TOWER_TYPE_IDS) {
+      const tower = TOWER_TYPES[id];
+      if (isCombatTower(tower)) continue;
+
+      const wavesToRepay = tower.cost / tower.income;
+      assert.ok(
+        wavesToRepay < TOTAL_WAVES,
+        `${id} takes ${wavesToRepay} waves to repay ${tower.cost}, out of ${TOTAL_WAVES}`,
+      );
     }
   });
 
