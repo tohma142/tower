@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { describeEvent } from '../../src/client/render/hud.js';
-import { ENEMY_TYPES } from '../../src/shared/constants.js';
+import { ENEMY_TYPES, TOWER_TYPES } from '../../src/shared/constants.js';
 import { REJECT_REASON } from '../../src/shared/protocol.js';
 
 /**
@@ -53,6 +53,22 @@ describe('describeEvent', () => {
     // A newer server could add a creature this client has no name for; showing
     // something beats showing "undefined".
     assert.match(line({ kind: 'leak', enemyType: 'kraken', damage: 3 }), /kraken/);
+  });
+
+  it('reports a sale with the penguin name and the fish returned', () => {
+    const text = line({ kind: 'towerSold', towerType: 'sniper', refund: 84 });
+
+    assert.match(text, /Sniper/, 'players see the penguin, not the type id');
+    assert.match(text, /\+84 fish/);
+  });
+
+  it('names every penguin by its display name, never its type id', () => {
+    for (const [id, spec] of Object.entries(TOWER_TYPES)) {
+      const text = line({ kind: 'towerSold', towerType: id, refund: 1 });
+
+      assert.match(text, new RegExp(spec.name), `${id} should be shown as "${spec.name}"`);
+      assert.equal(text.includes(id), false, `${id} leaked its type id into the UI`);
+    }
   });
 
   it('words victory and defeat differently, and names the wave lost on', () => {

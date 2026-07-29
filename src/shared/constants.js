@@ -136,6 +136,45 @@ export function levelMultiplier(level) {
   return TOWER_LEVEL_MULTIPLIER[level - 1] ?? 1;
 }
 
+// --- Selling -----------------------------------------------------------------
+
+/**
+ * Fraction of what a penguin cost that selling it returns.
+ *
+ * Not 1.0 on purpose. A full refund would make placement free to undo, and placement is
+ * the deepest decision in this game — the difference between coverage-ranked tiles and
+ * a left-to-right scan decides whole runs. At 0.7 a misclick costs 30% rather than the
+ * whole penguin, which is enough to keep the decision real without making it punishing.
+ *
+ * Applied to everything sunk into the penguin, not just its purchase price, so this
+ * stays correct when upgrades start adding to that total.
+ */
+export const SELL_REFUND_RATE = 0.7;
+
+/**
+ * What selling a penguin pays back.
+ *
+ * Shared rather than duplicated, because both sides compute it: the server to move the
+ * fish, the client to put a number on the button *before* the click. Two independent
+ * roundings would eventually disagree, and a button that promises 36 and pays 35 reads
+ * as a bug in the game rather than in the arithmetic.
+ *
+ * Floored, so a sell-and-rebuy cycle can never manufacture fish out of rounding.
+ *
+ * The product is snapped to whole fish before flooring, because binary floating point
+ * puts `90 * 0.7` at 62.99999999999999 and a bare floor pays 62 for a penguin worth 63.
+ * Upgrades are what made that reachable: no base tower cost lands on an affected total,
+ * but a cost plus an upgrade does, and 90 is a Pistol upgraded once. The snap only ever
+ * absorbs error of order 1e-13, so it cannot round a genuine 62.9 up to 63.
+ *
+ * @param {number} invested Total fish sunk into the penguin.
+ * @returns {number} Fish returned, never negative.
+ */
+export function sellRefundFor(invested) {
+  const exact = Math.round(invested * SELL_REFUND_RATE * 1e6) / 1e6;
+  return Math.max(0, Math.floor(exact));
+}
+
 /** Waves in a full game. */
 export const TOTAL_WAVES = 15;
 

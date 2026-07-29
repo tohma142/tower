@@ -187,7 +187,11 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   color: var(--bright);
 }
 
-#upgrade { width: 100%; }
+/* Stacks the Upgrade and Sell buttons, each full width. */
+#selection-actions {
+  display: grid;
+  gap: 0.35rem;
+}
 
 #shop-stats {
   margin: 0.6rem 0 0;

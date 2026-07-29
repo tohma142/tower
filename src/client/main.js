@@ -13,6 +13,7 @@ import {
   RENDER_DELAY_MS,
   RENDER_SCALE,
   TOWER_TYPES,
+  sellRefundFor,
   upgradeCostFor,
 } from '../shared/constants.js';
 import { isBuildable } from '../shared/map.js';
@@ -47,7 +48,8 @@ const roomFromUrl = /^\/r\/([A-Z0-9]+)\/?$/.exec(location.pathname)?.[1] ?? null
 /** @type {{ selectedTower: string | null, selectedTile: { x: number, y: number } | null, hoverTile: { x: number, y: number } | null, roster: any, latestView: import('../game/state.js').Snapshot | null, ready: boolean }} */
 const ui = {
   selectedTower: null,
-  /** A placed penguin the player has clicked, addressed by tile rather than by id. */
+  /** A placed penguin the player has clicked, addressed by tile rather than by id.
+   *  Tiles survive a penguin being sold and rebuilt; ids do not. */
   selectedTile: null,
   hoverTile: null,
   roster: { players: [], spectators: 0, waitingOn: [] },
@@ -135,6 +137,14 @@ hud.setSelection(null);
 hud.elements.upgradeButton.addEventListener('click', () => {
   if (ui.selectedTile === null) return;
   connection.send({ type: 'upgrade', tileX: ui.selectedTile.x, tileY: ui.selectedTile.y });
+});
+
+hud.elements.sellButton.addEventListener('click', () => {
+  if (ui.selectedTile === null) return;
+  connection.send({ type: 'sell', tileX: ui.selectedTile.x, tileY: ui.selectedTile.y });
+  // Cleared optimistically: the tile is about to be empty, and the next frame reconciles
+  // against the snapshot anyway if the server refuses.
+  ui.selectedTile = null;
 });
 
 canvas.addEventListener('mousemove', (event) => {
@@ -248,9 +258,10 @@ function towerAtTile(view, tile) {
 /**
  * Reconcile the selection panel against the authoritative world.
  *
- * Driven from the snapshot every frame rather than latched at click time: another player
- * can upgrade the penguin you have selected, and the panel has to show what is true
- * rather than what this client last saw.
+ * Driven from the snapshot every frame rather than latched at click time, because the
+ * selected penguin changes without this client doing anything: another player can upgrade
+ * it, or sell it out from under you. A latched panel would show a stale level, or offer to
+ * sell an empty tile.
  *
  * @param {import('../game/state.js').Snapshot} view
  * @returns {void}
@@ -279,6 +290,12 @@ function updateSelection(view) {
     maxLevel: MAX_TOWER_LEVEL,
     cost,
     affordable: cost !== null && me !== undefined && me.fish >= cost,
+    // Read off `invested`, so an upgraded penguin quotes a refund that includes what the
+    // upgrades cost. Deriving it from the base price here would under-quote the button
+    // and disagree with what the server actually pays.
+    refund: sellRefundFor(tower.invested),
+    // Upgrading and selling are both build actions like placing, so they follow the same
+    // phase rule; a spectator has no wallet to spend or be refunded into.
     canEdit:
       connection.role() === 'player' &&
       (view.phase === PHASE.BUILD || view.phase === PHASE.WAVE),
