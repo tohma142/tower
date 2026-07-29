@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 
 import { spawnEnemy } from '../../src/game/enemies.js';
 import { advanceProjectiles, createProjectile } from '../../src/game/projectiles.js';
-import { createTower } from '../../src/game/towers.js';
+import { createTower, towerDamage } from '../../src/game/towers.js';
 import { TOWER_TYPES } from '../../src/shared/constants.js';
 import { positionAt } from '../../src/shared/map.js';
 import { makeGame, player } from '../helpers/game.js';
@@ -17,12 +17,28 @@ function tower(state, type) {
   return createTower(state, { ownerId: 'p1', type, tileX: 1, tileY: 3 });
 }
 
+/**
+ * Fire a shot, working out its damage the way the simulation does.
+ *
+ * `createProjectile` takes damage as an argument rather than reading it off the tower,
+ * so that upgrades are applied at exactly one place. Tests go through here so they stay
+ * honest about which number a shot actually carries.
+ *
+ * @param {import('../../src/game/state.js').GameState} state
+ * @param {import('../../src/game/towers.js').Tower} from
+ * @param {import('../../src/game/enemies.js').Enemy} target
+ * @returns {import('../../src/game/projectiles.js').Projectile}
+ */
+function shoot(state, from, target) {
+  return createProjectile(state, from, target, towerDamage(from));
+}
+
 describe('advanceProjectiles', () => {
   it('moves a projectile towards its target', () => {
     const state = makeGame();
     const enemy = spawnEnemy(state, 'walker');
     enemy.progress = 6;
-    const projectile = createProjectile(state, tower(state, 'sniper'), enemy);
+    const projectile = shoot(state, tower(state, 'sniper'), enemy);
     const start = { x: projectile.x, y: projectile.y };
 
     advanceProjectiles(state, 20);
@@ -37,7 +53,7 @@ describe('advanceProjectiles', () => {
     const state = makeGame();
     const enemy = spawnEnemy(state, 'walker');
     enemy.progress = 1;
-    createProjectile(state, tower(state, 'pistol'), enemy);
+    shoot(state, tower(state, 'pistol'), enemy);
 
     // A pistol round at 14 tiles/sec covers the short gap well within a second.
     for (let i = 0; i < 20 && state.projectiles.length > 0; i += 1) {
@@ -52,7 +68,7 @@ describe('advanceProjectiles', () => {
     const state = makeGame();
     const enemy = spawnEnemy(state, 'runner');
     enemy.progress = 2;
-    createProjectile(state, tower(state, 'pistol'), enemy);
+    shoot(state, tower(state, 'pistol'), enemy);
 
     for (let i = 0; i < 40 && state.projectiles.length > 0; i += 1) {
       enemy.progress += 0.2;
@@ -70,7 +86,7 @@ describe('advanceProjectiles', () => {
     const other = spawnEnemy(state, 'walker');
     other.progress = 6;
 
-    createProjectile(state, tower(state, 'sniper'), enemy);
+    shoot(state, tower(state, 'sniper'), enemy);
     enemy.hp = 0;
 
     for (let i = 0; i < 40 && state.projectiles.length > 0; i += 1) {
@@ -88,7 +104,7 @@ describe('advanceProjectiles', () => {
     doomed.progress = 6;
     neighbour.progress = 6.2;
 
-    createProjectile(state, tower(state, 'bomber'), doomed);
+    shoot(state, tower(state, 'bomber'), doomed);
     doomed.hp = 0;
 
     for (let i = 0; i < 60 && state.projectiles.length > 0; i += 1) {
@@ -107,7 +123,7 @@ describe('advanceProjectiles', () => {
     b.progress = 6.3;
     c.progress = 6.6;
 
-    createProjectile(state, tower(state, 'bomber'), a);
+    shoot(state, tower(state, 'bomber'), a);
     for (let i = 0; i < 60 && state.projectiles.length > 0; i += 1) {
       advanceProjectiles(state, 50);
     }
@@ -122,7 +138,7 @@ describe('advanceProjectiles', () => {
     target.progress = 6;
     distant.progress = 25;
 
-    createProjectile(state, tower(state, 'bomber'), target);
+    shoot(state, tower(state, 'bomber'), target);
     for (let i = 0; i < 60 && state.projectiles.length > 0; i += 1) {
       advanceProjectiles(state, 50);
     }
@@ -136,7 +152,7 @@ describe('advanceProjectiles', () => {
     const state = makeGame();
     const enemy = spawnEnemy(state, 'walker');
     enemy.progress = 1.2;
-    createProjectile(state, tower(state, 'sniper'), enemy);
+    shoot(state, tower(state, 'sniper'), enemy);
 
     for (let i = 0; i < 200 && state.projectiles.length > 0; i += 1) {
       advanceProjectiles(state, 50);
@@ -158,7 +174,7 @@ describe('advanceProjectiles', () => {
     enemy.progress = 1;
     enemy.hp = 1;
 
-    createProjectile(state, tower(state, 'pistol'), enemy);
+    shoot(state, tower(state, 'pistol'), enemy);
     for (let i = 0; i < 40 && state.projectiles.length > 0; i += 1) {
       advanceProjectiles(state, 50);
     }

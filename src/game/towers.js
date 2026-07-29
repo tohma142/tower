@@ -6,7 +6,8 @@
  * targeting rule (furthest along the path) and in cooldown accounting.
  */
 
-import { TOWER_TYPES, isCombatTower } from '../shared/constants.js';
+import { TOWER_TYPES, isCombatTower, levelMultiplier } from '../shared/constants.js';
+import { tileKey } from '../shared/map.js';
 
 import { findTarget } from './enemies.js';
 import { createProjectile } from './projectiles.js';
@@ -22,6 +23,11 @@ import { createProjectile } from './projectiles.js';
  * @property {number} x          World coords of the tile centre.
  * @property {number} y
  * @property {number} cooldownMs Milliseconds until it may fire again.
+ * @property {number} level     1-based. Scales this penguin's output — damage if it
+ *                              shoots, income if it does not.
+ * @property {number} invested  Total fish sunk into it, purchase price plus every
+ *                              upgrade. One field to read rather than a formula to
+ *                              rediscover wherever the total matters.
  * @property {import('../shared/constants.js').TowerType} spec
  */
 
@@ -56,12 +62,42 @@ export function createTower(state, { ownerId, type, tileX, tileY }) {
     // Ready immediately. Making a fresh penguin wait out a cooldown would punish
     // building mid-wave, which is exactly when a player is reacting to trouble.
     cooldownMs: 0,
+    level: 1,
+    invested: spec.cost,
     spec,
   };
   state.nextId += 1;
 
   state.towers.push(tower);
   return tower;
+}
+
+/**
+ * Find the penguin standing on a tile.
+ *
+ * @param {import('./state.js').GameState} state
+ * @param {number} tileX
+ * @param {number} tileY
+ * @returns {Tower | undefined}
+ */
+export function towerAt(state, tileX, tileY) {
+  const id = state.occupancy.get(tileKey(tileX, tileY));
+  if (id === undefined) return undefined;
+  return state.towers.find((t) => t.id === id);
+}
+
+/**
+ * A penguin's damage at its current level.
+ *
+ * Read here rather than from `spec.damage` anywhere downstream, so there is exactly one
+ * place that knows levels affect damage. A projectile that captured `spec.damage`
+ * directly would ignore upgrades and nothing would fail.
+ *
+ * @param {Tower} tower
+ * @returns {number}
+ */
+export function towerDamage(tower) {
+  return tower.spec.damage * levelMultiplier(tower.level);
 }
 
 /**
@@ -77,7 +113,7 @@ export function createTower(state, { ownerId, type, tileX, tileY }) {
  */
 export function totalIncome(state) {
   let total = 0;
-  for (const tower of state.towers) total += tower.spec.income;
+  for (const tower of state.towers) total += tower.spec.income * levelMultiplier(tower.level);
   return total;
 }
 
@@ -116,7 +152,7 @@ export function updateTowers(state, dtMs) {
       continue;
     }
 
-    createProjectile(state, tower, target);
+    createProjectile(state, tower, target, towerDamage(tower));
 
     // Add the interval rather than assigning it, so a cooldown that overshot into
     // negative territory carries the remainder forward. Assigning would quietly lower

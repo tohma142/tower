@@ -43,6 +43,9 @@ export function describeEvent(event, playerId = null) {
         ? 'The iceberg holds. You win.'
         : `The iceberg is gone. Defeat on wave ${event.wave}.`;
 
+    case 'towerUpgraded':
+      return `${TOWER_TYPES[event.towerType]?.name ?? event.towerType} upgraded to level ${event.level} (-${event.cost} fish)`;
+
     case 'gameStarted':
       return 'Game started — build your defences';
 
@@ -89,6 +92,8 @@ function describeRejection(reason, playerId) {
     case 'wrongPhase': return 'Not right now';
     case 'notAPlayer': return playerId === null ? 'Spectators cannot build' : 'You are not seated';
     case 'unknownTowerType': return 'No such penguin';
+    case 'noTowerHere': return 'No penguin on that tile';
+    case 'alreadyMaxLevel': return 'That penguin is fully upgraded';
 
     // These two normally arrive as a connection-level rejection and are shown on the
     // overlay rather than in the log. They are worded here anyway: the constant exists,
@@ -140,13 +145,38 @@ function buildHud(doc) {
   const readyButton = /** @type {HTMLButtonElement} */ (el('ready'));
   const shopButtons = el('shop-buttons');
   const shopHint = el('shop-hint');
+  const selection = el('selection');
+  const selectionName = el('selection-name');
+  const upgradeButton = /** @type {HTMLButtonElement} */ (el('upgrade'));
   const overlay = el('overlay');
   const overlayTitle = el('overlay-title');
   const overlayBody = el('overlay-body');
   const overlayAction = /** @type {HTMLButtonElement} */ (el('overlay-action'));
 
   return {
-    elements: { readyButton, shopButtons, overlayAction, copyLink: el('copy-link') },
+    elements: { readyButton, shopButtons, overlayAction, upgradeButton, copyLink: el('copy-link') },
+
+    /**
+     * Show the selected penguin, its level, and what the next one costs.
+     *
+     * @param {{ name: string, level: number, maxLevel: number, cost: number | null,
+     *   affordable: boolean, canEdit: boolean } | null} content
+     * @returns {void}
+     */
+    setSelection(content) {
+      if (content === null) {
+        selection.hidden = true;
+        return;
+      }
+      selection.hidden = false;
+      selectionName.textContent = `${content.name} — level ${content.level}/${content.maxLevel}`;
+
+      const atCap = content.cost === null;
+      upgradeButton.textContent = atCap ? 'Fully upgraded' : `Upgrade (${content.cost} fish)`;
+      // Disabled on price as well as on the cap, so the button never invites a click the
+      // server is certain to refuse.
+      upgradeButton.disabled = atCap || !content.affordable || !content.canEdit;
+    },
 
     /** @param {string} code */
     setRoomCode(code) {

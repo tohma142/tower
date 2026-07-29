@@ -451,7 +451,12 @@ describe('snapshot', () => {
     place(state, 'p1', tile.x, tile.y, 'pistol');
 
     for (const tower of snapshot(state).towers) {
-      assert.deepEqual(Object.keys(tower).sort(), ['id', 'owner', 'type', 'x', 'y']);
+      // `level` and `invested` are on the wire deliberately: every client must show the
+      // same penguin the same way, and the upgrade button needs an exact next price.
+      assert.deepEqual(
+        Object.keys(tower).sort(),
+        ['id', 'invested', 'level', 'owner', 'type', 'x', 'y'],
+      );
     }
   });
 
