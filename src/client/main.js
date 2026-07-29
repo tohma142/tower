@@ -83,6 +83,22 @@ const connection = createConnection({
     // penguin. The player sees the reason in the log.
     const line = describeEvent(event, connection.playerId());
     if (line !== null) hud.pushEvent(line);
+
+    // A refused placement puts the penguin back in your hand. Clicking a path tile
+    // should cost you a click, not your selection — and the server echoes the original
+    // request back, so this re-arms exactly what was tried rather than a guess.
+    //
+    // Only when nothing is armed: by the time a rejection arrives the player may have
+    // chosen something else, and overriding a deliberate later choice with an undo of an
+    // earlier mistake is worse than doing nothing.
+    if (
+      event.kind === 'commandRejected' &&
+      event.request?.type === 'place' &&
+      ui.selectedTower === null
+    ) {
+      ui.selectedTower = event.request.towerType;
+      hud.setSelectedTower(ui.selectedTower);
+    }
   },
 
   onRejected(reason) {
@@ -142,6 +158,13 @@ canvas.addEventListener('click', (event) => {
       tileY: tile.y,
       towerType: ui.selectedTower,
     });
+
+    // Disarm on click rather than on confirmation. Waiting for the snapshot would leave
+    // the shop armed for a tick and a half, which is long enough to double-place with a
+    // quick second click — the exact thing this is meant to stop. A placement the server
+    // then refuses re-arms itself; see onEvent.
+    ui.selectedTower = null;
+    hud.setSelectedTower(null);
     return;
   }
 
