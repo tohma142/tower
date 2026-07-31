@@ -12,8 +12,7 @@
 import { GRID_COLS, GRID_ROWS, TOWER_TYPES } from '../../shared/constants.js';
 import { ICEBERG_TILE, isBuildable, isPathTile, positionAt } from '../../shared/map.js';
 
-import { cardPosition, cardSize } from './stats.js';
-import { canvasSize, tilePixels, tileToCanvas, worldToCanvas } from './view.js';
+import { tilePixels, tileToCanvas, worldToCanvas } from './view.js';
 
 const COLOURS = Object.freeze({
   ground: '#1b1b1b',
@@ -31,11 +30,6 @@ const COLOURS = Object.freeze({
   range: 'rgba(232, 232, 232, 0.10)',
   rangeEdge: 'rgba(232, 232, 232, 0.35)',
   ownerMark: '#f2f2f2',
-  cardBack: 'rgba(14, 14, 14, 0.92)',
-  cardEdge: '#4d4d4d',
-  cardTitle: '#ffffff',
-  cardLabel: '#8a8a8a',
-  cardValue: '#e8e8e8',
 });
 
 /** Distinct markers so each player can pick their own penguins out of a crowded board. */
@@ -240,64 +234,3 @@ export function drawTowerRanges(ctx, view, scale) {
   }
 }
 
-/**
- * Draw a unit's stat card beside its tile.
- *
- * The card's content and placement are decided in `stats.js`, which is pure and tested;
- * this only fills the box and lays the text out inside it.
- *
- * Text is drawn at a size derived from the tile, not a fixed pixel value, so the card
- * scales with the board rather than shrinking into illegibility at a higher render scale.
- *
- * @param {CanvasRenderingContext2D} ctx
- * @param {object} card
- * @param {{ x: number, y: number }} card.tile
- * @param {string} card.title
- * @param {Array<{ label: string, value: string }>} card.lines
- * @param {number} scale
- * @returns {void}
- */
-export function drawStatCard(ctx, { tile, title, lines }, scale) {
-  const px = tilePixels(scale);
-  const fontPx = Math.max(8, Math.round(px * 0.32));
-  const font = `${fontPx}px ui-monospace, monospace`;
-
-  // 0.6 is the advance width of a monospace glyph as a fraction of its point size, close
-  // enough across the stack in use that measuring per-frame buys nothing.
-  const charWidth = fontPx * 0.6;
-  const lineHeight = Math.round(fontPx * 1.35);
-  const padding = Math.round(fontPx * 0.6);
-
-  const size = cardSize({ title, lines }, { charWidth, lineHeight, padding });
-  const { x, y } = cardPosition({
-    tile,
-    card: size,
-    tilePx: px,
-    board: canvasSize(scale),
-  });
-
-  ctx.fillStyle = COLOURS.cardBack;
-  ctx.fillRect(x, y, size.width, size.height);
-  ctx.strokeStyle = COLOURS.cardEdge;
-  ctx.lineWidth = 1;
-  ctx.strokeRect(x + 0.5, y + 0.5, size.width - 1, size.height - 1);
-
-  ctx.font = font;
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'top';
-
-  ctx.fillStyle = COLOURS.cardTitle;
-  ctx.fillText(title, x + padding, y + padding);
-
-  lines.forEach((line, index) => {
-    const rowY = y + padding + lineHeight * (index + 1);
-    ctx.fillStyle = COLOURS.cardLabel;
-    ctx.fillText(line.label, x + padding, rowY);
-
-    // Values right-aligned to the card edge, so a column of numbers reads as a column.
-    ctx.fillStyle = COLOURS.cardValue;
-    ctx.textAlign = 'right';
-    ctx.fillText(line.value, x + size.width - padding, rowY);
-    ctx.textAlign = 'left';
-  });
-}

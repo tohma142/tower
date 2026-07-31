@@ -11,9 +11,9 @@ import { describe, it } from 'node:test';
 
 import {
   cardPosition,
-  cardSize,
   cardTitle,
   formatStat,
+  panelPosition,
   statLines,
 } from '../../src/client/render/stats.js';
 import {
@@ -195,37 +195,6 @@ describe('cardTitle', () => {
   });
 });
 
-describe('cardSize', () => {
-  it('is wide enough for its widest row', () => {
-    const metrics = { charWidth: 10, lineHeight: 16, padding: 5 };
-    const narrow = cardSize({ title: 'A', lines: [{ label: 'x', value: '1' }] }, metrics);
-    const wide = cardSize(
-      { title: 'A', lines: [{ label: 'splashiest', value: '10.5' }] },
-      metrics,
-    );
-
-    assert.ok(wide.width > narrow.width);
-  });
-
-  it('is wide enough for a title longer than any row', () => {
-    const metrics = { charWidth: 10, lineHeight: 16, padding: 5 };
-    const size = cardSize({ title: 'A VERY LONG NAME  L3', lines: [] }, metrics);
-
-    assert.ok(size.columns >= 'A VERY LONG NAME  L3'.length);
-  });
-
-  it('grows a line at a time', () => {
-    const metrics = { charWidth: 10, lineHeight: 16, padding: 5 };
-    const one = cardSize({ title: 'T', lines: [{ label: 'a', value: '1' }] }, metrics);
-    const two = cardSize(
-      { title: 'T', lines: [{ label: 'a', value: '1' }, { label: 'b', value: '2' }] },
-      metrics,
-    );
-
-    assert.equal(two.height - one.height, metrics.lineHeight);
-  });
-});
-
 describe('cardPosition', () => {
   it('sits above and right of the tile, clear of the penguin', () => {
     const pos = cardPosition({
@@ -299,5 +268,79 @@ describe('cardPosition', () => {
 
     assert.equal(pos.x, 0);
     assert.equal(pos.y, 0);
+  });
+});
+
+describe('panelPosition', () => {
+  /**
+   * The stage is larger than the canvas: the board is centred in it with padding, so
+   * every position has to be offset by where the canvas actually sits.
+   */
+  const STAGE = { left: 100, top: 50 };
+  const CANVAS = { left: 140, top: 66, width: 960, height: 576 };
+  const PANEL = { width: 180, height: 120 };
+  const ARGS = {
+    panel: PANEL,
+    canvasRect: CANVAS,
+    stageRect: STAGE,
+    backingWidth: 960,
+    tilePxBacking: 48,
+  };
+
+  it('offsets by where the canvas sits inside the stage', () => {
+    // Positioning against the canvas and then attaching to the stage is the bug this
+    // guards: it puts the panel off by exactly the padding, which looks close enough to
+    // right that it survives a glance.
+    const pos = panelPosition({ ...ARGS, tile: { x: 5, y: 5 } });
+
+    assert.equal(pos.x, 5 * 48 + 48 + 6 + (CANVAS.left - STAGE.left));
+    assert.equal(pos.y, 5 * 48 - PANEL.height - 6 + (CANVAS.top - STAGE.top));
+  });
+
+  it('follows the board when the canvas is scaled down to fit', () => {
+    // The canvas is drawn at a fixed backing size and scaled by CSS. A panel that used
+    // backing pixels directly would drift further from its penguin the smaller the
+    // window got — correct at full size, visibly wrong on a laptop.
+    const half = panelPosition({
+      ...ARGS,
+      tile: { x: 4, y: 6 },
+      canvasRect: { ...CANVAS, width: 480, height: 288 },
+    });
+
+    const tilePx = 24; // 48 backing pixels at half display scale
+    assert.equal(half.x, 4 * tilePx + tilePx + 6 + (CANVAS.left - STAGE.left));
+    assert.equal(half.y, 6 * tilePx - PANEL.height - 6 + (CANVAS.top - STAGE.top));
+  });
+
+  it('keeps the panel on the board from every tile', () => {
+    // Same property `cardPosition` guarantees, re-asserted through the coordinate
+    // conversion — that is where it would be lost.
+    for (let x = 0; x < 20; x += 1) {
+      for (let y = 0; y < 12; y += 1) {
+        const pos = panelPosition({ ...ARGS, tile: { x, y } });
+        const left = pos.x - (CANVAS.left - STAGE.left);
+        const top = pos.y - (CANVAS.top - STAGE.top);
+
+        assert.ok(left >= 0, `(${x},${y}) ran off the left`);
+        assert.ok(top >= 0, `(${x},${y}) ran off the top`);
+        assert.ok(left + PANEL.width <= CANVAS.width, `(${x},${y}) ran off the right`);
+        assert.ok(top + PANEL.height <= CANVAS.height, `(${x},${y}) ran off the bottom`);
+      }
+    }
+  });
+
+  it('survives a canvas that has not been laid out yet', () => {
+    // getBoundingClientRect returns zeros before first layout, and dividing by a zero
+    // backing width would put the panel at NaN — which renders as nothing at all, with
+    // no error to explain the missing panel.
+    const pos = panelPosition({
+      ...ARGS,
+      tile: { x: 0, y: 0 },
+      backingWidth: 0,
+      canvasRect: { left: 0, top: 0, width: 0, height: 0 },
+    });
+
+    assert.ok(Number.isFinite(pos.x), `x was ${pos.x}`);
+    assert.ok(Number.isFinite(pos.y), `y was ${pos.y}`);
   });
 });

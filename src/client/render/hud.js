@@ -152,10 +152,6 @@ function buildHud(doc) {
   const shopButtons = el('shop-buttons');
   const shopHint = el('shop-hint');
   const shopStats = el('shop-stats');
-  const selection = el('selection');
-  const selectionName = el('selection-name');
-  const upgradeButton = /** @type {HTMLButtonElement} */ (el('upgrade'));
-  const sellButton = /** @type {HTMLButtonElement} */ (el('sell'));
   const overlay = el('overlay');
   const overlayTitle = el('overlay-title');
   const overlayBody = el('overlay-body');
@@ -166,35 +162,7 @@ function buildHud(doc) {
       readyButton,
       shopButtons,
       overlayAction,
-      upgradeButton,
-      sellButton,
       copyLink: el('copy-link'),
-    },
-
-    /**
-     * Show the selected penguin: its level, what the next one costs, and what selling it
-     * pays back. Or hide the panel entirely.
-     *
-     * @param {{ name: string, level: number, maxLevel: number, cost: number | null,
-     *   affordable: boolean, refund: number, canEdit: boolean } | null} content
-     * @returns {void}
-     */
-    setSelection(content) {
-      if (content === null) {
-        selection.hidden = true;
-        return;
-      }
-      selection.hidden = false;
-      selectionName.textContent = `${content.name} — level ${content.level}/${content.maxLevel}`;
-
-      const atCap = content.cost === null;
-      upgradeButton.textContent = atCap ? 'Fully upgraded' : `Upgrade (${content.cost} fish)`;
-      // Disabled on price as well as on the cap, so the button never invites a click the
-      // server is certain to refuse.
-      upgradeButton.disabled = atCap || !content.affordable || !content.canEdit;
-
-      sellButton.textContent = `Sell (+${content.refund} fish)`;
-      sellButton.disabled = !content.canEdit;
     },
 
     /** @param {string} code */

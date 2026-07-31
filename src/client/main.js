@@ -20,12 +20,13 @@ import { isBuildable } from '../shared/map.js';
 
 import { log, setLogLevel } from './log.js';
 import { createConnection } from './net.js';
-import { drawBoard, drawEntities, drawGhost, drawStatCard, drawTowerRanges } from './render/draw.js';
+import { drawBoard, drawEntities, drawGhost, drawTowerRanges } from './render/draw.js';
 import { createHud, describeEvent } from './render/hud.js';
 import { sampleAt } from './render/interpolate.js';
+import { createUnitPanel } from './render/panel.js';
 import { compileAll } from './render/sprites.js';
 import { cardTitle, statLines } from './render/stats.js';
-import { canvasSize, eventToTile } from './render/view.js';
+import { canvasSize, eventToTile, tilePixels } from './render/view.js';
 
 setLogLevel(new URLSearchParams(location.search).get('log'));
 
@@ -41,6 +42,7 @@ ctx.imageSmoothingEnabled = false;
 
 const sprites = compileAll(RENDER_SCALE);
 const hud = createHud(document);
+const panel = createUnitPanel(document);
 
 /** The room code from `/r/CODE`, or null on `/` meaning "make me one". */
 const roomFromUrl = /^\/r\/([A-Z0-9]+)\/?$/.exec(location.pathname)?.[1] ?? null;
@@ -132,14 +134,14 @@ hud.buildShop((id) => {
   hud.setSelectedTower(ui.selectedTower);
 });
 hud.setSelectedTower(null);
-hud.setSelection(null);
+panel.hide();
 
-hud.elements.upgradeButton.addEventListener('click', () => {
+panel.elements.upgradeButton.addEventListener('click', () => {
   if (ui.selectedTile === null) return;
   connection.send({ type: 'upgrade', tileX: ui.selectedTile.x, tileY: ui.selectedTile.y });
 });
 
-hud.elements.sellButton.addEventListener('click', () => {
+panel.elements.sellButton.addEventListener('click', () => {
   if (ui.selectedTile === null) return;
   connection.send({ type: 'sell', tileX: ui.selectedTile.x, tileY: ui.selectedTile.y });
   // Cleared optimistically: the tile is about to be empty, and the next frame reconciles
@@ -267,38 +269,70 @@ function towerAtTile(view, tile) {
  * @returns {void}
  */
 function updateSelection(view) {
+  // A penguin armed in the shop previews itself under the cursor. No buttons: there is
+  // nothing placed yet to upgrade or sell.
+  if (ui.selectedTower !== null && ui.hoverTile !== null) {
+    const spec = TOWER_TYPES[ui.selectedTower];
+    if (spec === undefined) {
+      panel.hide();
+      return;
+    }
+
+    panel.show({
+      tile: ui.hoverTile,
+      title: cardTitle(spec, 1),
+      lines: statLines(spec, 1),
+      tilePxBacking: tilePixels(RENDER_SCALE),
+      actions: null,
+    });
+    return;
+  }
+
   if (ui.selectedTile === null) {
-    hud.setSelection(null);
+    panel.hide();
     return;
   }
 
   const tower = towerAtTile(view, ui.selectedTile);
   if (tower === undefined) {
     ui.selectedTile = null;
-    hud.setSelection(null);
+    panel.hide();
     return;
   }
 
   const spec = TOWER_TYPES[tower.type];
-  const atCap = tower.level >= MAX_TOWER_LEVEL;
-  const cost = atCap || spec === undefined ? null : upgradeCostFor(spec, tower.level);
-  const me = view.players.find((p) => p.id === connection.playerId());
+  if (spec === undefined) {
+    panel.hide();
+    return;
+  }
 
-  hud.setSelection({
-    name: spec?.name ?? tower.type,
-    level: tower.level,
-    maxLevel: MAX_TOWER_LEVEL,
-    cost,
-    affordable: cost !== null && me !== undefined && me.fish >= cost,
-    // Read off `invested`, so an upgraded penguin quotes a refund that includes what the
-    // upgrades cost. Deriving it from the base price here would under-quote the button
-    // and disagree with what the server actually pays.
-    refund: sellRefundFor(tower.invested),
-    // Upgrading and selling are both build actions like placing, so they follow the same
-    // phase rule; a spectator has no wallet to spend or be refunded into.
-    canEdit:
-      connection.role() === 'player' &&
-      (view.phase === PHASE.BUILD || view.phase === PHASE.WAVE),
+  const atCap = tower.level >= MAX_TOWER_LEVEL;
+  const cost = atCap ? null : upgradeCostFor(spec, tower.level);
+  const me = view.players.find((p) => p.id === connection.playerId());
+  const affordable = cost !== null && me !== undefined && me.fish >= cost;
+
+  // Upgrading and selling are both build actions like placing, so they follow the same
+  // phase rule; a spectator has no wallet to spend or be refunded into.
+  const canEdit =
+    connection.role() === 'player' &&
+    (view.phase === PHASE.BUILD || view.phase === PHASE.WAVE);
+
+  panel.show({
+    tile: ui.selectedTile,
+    title: cardTitle(spec, tower.level),
+    lines: statLines(spec, tower.level),
+    tilePxBacking: tilePixels(RENDER_SCALE),
+    actions: {
+      upgrade: atCap ? 'Fully upgraded' : `Upgrade (${cost} fish)`,
+      // Disabled on price as well as on the cap, so the button never invites a click the
+      // server is certain to refuse.
+      upgradeEnabled: !atCap && affordable && canEdit,
+      // Read off `invested`, so an upgraded penguin quotes a refund that includes what
+      // the upgrades cost. Deriving it from the base price here would under-quote the
+      // button and disagree with what the server actually pays.
+      sell: `Sell (+${sellRefundFor(tower.invested)} fish)`,
+      sellEnabled: canEdit,
+    },
   });
 }
 
@@ -384,36 +418,10 @@ function frame() {
       sprites.penguins,
       RENDER_SCALE,
     );
-
-    // The card follows the ghost, so the stats you are reading belong to the penguin you
-    // are about to place rather than to whatever is selected in the shop list.
-    const spec = TOWER_TYPES[ui.selectedTower];
-    if (spec !== undefined) {
-      drawStatCard(
-        ctx,
-        { tile: ui.hoverTile, title: cardTitle(spec, 1), lines: statLines(spec, 1) },
-        RENDER_SCALE,
-      );
-    }
   }
 
-  // A placed penguin's card, drawn last so nothing overlaps it.
-  if (ui.selectedTile !== null) {
-    const tower = towerAtTile(view, ui.selectedTile);
-    const spec = tower === undefined ? undefined : TOWER_TYPES[tower.type];
-    if (tower !== undefined && spec !== undefined) {
-      drawStatCard(
-        ctx,
-        {
-          tile: ui.selectedTile,
-          title: cardTitle(spec, tower.level),
-          lines: statLines(spec, tower.level),
-        },
-        RENDER_SCALE,
-      );
-    }
-  }
-
+  // The panel is DOM over the canvas rather than part of this drawing pass, so it is
+  // updated with the rest of the HUD below rather than here.
   hud.updateVitals(view, connection.playerId());
   updateSelection(view);
   updateReadyButton(view);
