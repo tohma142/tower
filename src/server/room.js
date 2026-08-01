@@ -277,7 +277,14 @@ export function createRoom({ code, newToken, logger }) {
     }
 
     if (msg.type === 'playAgain') {
-      if (state.phase === PHASE.GAME_OVER) promoteAndReset();
+      // Allowed from any phase, not just GAME_OVER. A run that is clearly lost — or one
+      // misbuilt in the first thirty seconds — used to have to be played out to the end
+      // before anyone could start again, and the only alternative was closing the tab,
+      // which strands everyone else in the room.
+      //
+      // Abandoning mid-wave is safe because it goes through the same reset the game-over
+      // path uses: there is no half-restarted state to get wrong.
+      if (state.phase !== PHASE.LOBBY) promoteAndReset();
       return;
     }
 

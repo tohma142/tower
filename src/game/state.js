@@ -274,8 +274,15 @@ export function resetToLobby(state) {
   state.occupancy = new Map();
   state.outcome = null;
 
+  // Restored here as well as in `startGame`, so the lobby shows the numbers the next game
+  // will actually begin with. Leaving them at whatever the abandoned run ended on means a
+  // player who restarts sees their spent-down fish and reads it as a handicap, and a
+  // player who lost sees the iceberg sitting at 0.
+  state.icebergHp = ICEBERG_HP;
+
   for (const player of state.players.values()) {
     player.ready = false;
+    player.fish = STARTING_FISH;
   }
 
   state.events.push({ kind: 'returnedToLobby' });
