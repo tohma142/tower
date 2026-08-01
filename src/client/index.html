@@ -21,6 +21,15 @@
       <main id="stage">
         <canvas id="board" width="960" height="576" aria-label="Game board"></canvas>
 
+        <div id="unit-panel" hidden>
+          <p id="unit-panel-title"></p>
+          <dl id="unit-panel-stats"></dl>
+          <div id="unit-panel-actions">
+            <button id="upgrade" type="button">Upgrade</button>
+            <button id="sell" type="button">Sell</button>
+          </div>
+        </div>
+
         <div id="overlay" hidden>
           <div id="overlay-card">
             <h2 id="overlay-title"></h2>
@@ -52,15 +61,6 @@
           <div id="shop-buttons"></div>
           <p id="shop-hint">Pick a penguin, then click a tile.</p>
           <dl id="shop-stats" hidden></dl>
-        </section>
-
-        <section id="selection" hidden>
-          <h2>Selected</h2>
-          <p id="selection-name"></p>
-          <div id="selection-actions">
-            <button id="upgrade" type="button">Upgrade</button>
-            <button id="sell" type="button">Sell</button>
-          </div>
         </section>
 
         <section id="team">

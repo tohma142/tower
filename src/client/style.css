@@ -182,17 +182,6 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .shop-button .cost { color: inherit; opacity: 0.75; }
 
-#selection-name {
-  margin: 0 0 0.6rem;
-  color: var(--bright);
-}
-
-/* Stacks the Upgrade and Sell buttons, each full width. */
-#selection-actions {
-  display: grid;
-  gap: 0.35rem;
-}
-
 #shop-stats {
   margin: 0.6rem 0 0;
   display: grid;
@@ -254,12 +243,67 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 
 #event-log li:first-child { color: var(--text); }
 
+/* The unit panel floats over the board beside the penguin it describes. Positioned by
+   `transform` from the stage's top-left, which is why `top`/`left` stay at 0. */
+#unit-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  min-width: 11rem;
+  padding: 0.5rem 0.6rem;
+  background: rgba(14, 14, 14, 0.94);
+  border: 1px solid #4d4d4d;
+  font-size: 0.78rem;
+  /* Above the board. The game-over overlay claims a higher layer explicitly, because
+     z-index order beats document order and this would otherwise cover it. */
+  z-index: 1;
+}
+
+#unit-panel[hidden] { display: none; }
+
+/* The preview follows the cursor across tiles the player is about to click on, so it must
+   not swallow those clicks. The placed-penguin panel must catch them, or its own buttons
+   would never fire. */
+#unit-panel.preview { pointer-events: none; }
+
+#unit-panel-title {
+  margin: 0 0 0.35rem;
+  color: var(--bright);
+  letter-spacing: 0.04em;
+}
+
+#unit-panel-stats {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.1rem 0.75rem;
+}
+
+#unit-panel-stats dt { color: var(--dim); }
+#unit-panel-stats dd { margin: 0; text-align: right; color: var(--text); }
+
+/* Stacks Upgrade and Sell, each full width, under a rule that separates the numbers you
+   are deciding on from the buttons that spend against them. */
+#unit-panel-actions {
+  display: grid;
+  gap: 0.3rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--line);
+}
+
+#unit-panel-actions[hidden] { display: none; }
+#unit-panel-actions button { font-size: 0.78rem; padding: 0.3rem 0.5rem; }
+
 #overlay {
   position: absolute;
   inset: 0;
   display: grid;
   place-items: center;
   background: rgba(10, 10, 10, 0.82);
+  /* Above the unit panel. Without this the panel wins on z-index alone regardless of
+     document order, and a stat card sits on top of "You win". */
+  z-index: 2;
 }
 
 #overlay[hidden] { display: none; }

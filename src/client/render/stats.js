@@ -117,33 +117,52 @@ export function statLines(spec, level = 1) {
 }
 
 /**
- * How wide and tall the card needs to be, in canvas pixels.
+ * Where to put the panel, in pixels relative to the stage it is positioned inside.
  *
- * Measured from character counts rather than `ctx.measureText`, so the layout is a pure
- * function of the content and can be tested without a canvas. The font is monospace, so
- * character counts are exact rather than an approximation.
+ * The panel is a DOM element over the canvas, so three coordinate spaces meet here and
+ * getting any of them wrong puts the panel somewhere plausible-looking but wrong:
  *
- * @param {object} content
- * @param {string} content.title
- * @param {Array<{ label: string, value: string }>} content.lines
- * @param {object} metrics
- * @param {number} metrics.charWidth
- * @param {number} metrics.lineHeight
- * @param {number} metrics.padding
- * @returns {{ width: number, height: number, columns: number }}
+ * - the board is measured in tiles,
+ * - the canvas is drawn at a fixed backing size and then scaled to fit by CSS,
+ * - the panel is positioned against the stage, which is larger than the canvas because
+ *   the canvas is centred inside it with padding.
+ *
+ * `tilePxBacking` is a tile in *backing* pixels; multiplying by the display scale is what
+ * keeps the panel beside its penguin when the window is too small to show the board at
+ * full size.
+ *
+ * @param {object} options
+ * @param {{ x: number, y: number }} options.tile
+ * @param {{ width: number, height: number }} options.panel Measured panel size, CSS px.
+ * @param {{ left: number, top: number, width: number, height: number }} options.canvasRect
+ * @param {{ left: number, top: number }} options.stageRect
+ * @param {number} options.backingWidth Canvas `width` attribute, i.e. unscaled pixels.
+ * @param {number} options.tilePxBacking Backing pixels per tile.
+ * @param {number} [options.gap]
+ * @returns {{ x: number, y: number }} Offset from the stage's top-left, CSS px.
  */
-export function cardSize({ title, lines }, { charWidth, lineHeight, padding }) {
-  const labelWidth = Math.max(0, ...lines.map((l) => l.label.length));
-  const valueWidth = Math.max(0, ...lines.map((l) => l.value.length));
+export function panelPosition({
+  tile,
+  panel,
+  canvasRect,
+  stageRect,
+  backingWidth,
+  tilePxBacking,
+  gap = 6,
+}) {
+  const displayScale = backingWidth === 0 ? 1 : canvasRect.width / backingWidth;
 
-  // One space between label and value; the title is not padded to the columns.
-  const bodyColumns = lines.length === 0 ? 0 : labelWidth + 1 + valueWidth;
-  const columns = Math.max(title.length, bodyColumns);
+  const placed = cardPosition({
+    tile,
+    card: panel,
+    tilePx: tilePxBacking * displayScale,
+    board: { width: canvasRect.width, height: canvasRect.height },
+    gap,
+  });
 
   return {
-    columns,
-    width: Math.ceil(columns * charWidth + padding * 2),
-    height: Math.ceil((lines.length + 1) * lineHeight + padding * 2),
+    x: placed.x + (canvasRect.left - stageRect.left),
+    y: placed.y + (canvasRect.top - stageRect.top),
   };
 }
 
