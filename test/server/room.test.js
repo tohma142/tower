@@ -435,12 +435,58 @@ describe('game over and play again', () => {
     assert.equal(room.state.phase, PHASE.LOBBY);
   });
 
-  it('ignores playAgain while a game is still running', () => {
+  it('abandons a game in progress on playAgain', () => {
+    // This used to assert the opposite — playAgain was ignored unless the game was over.
+    // That left a run that was clearly lost with no way out but closing the tab, which
+    // strands everyone else in the room. The Restart button is the deliberate reversal;
+    // the two-step confirm on it is what stops a stray click ending someone else's game.
+    const { room } = makeRoom();
+    seat(room, 'c1');
+    readyAll(room, ['c1']);
+    assert.equal(room.state.phase, PHASE.BUILD);
+
+    room.enqueue('c1', { type: 'playAgain' });
+
+    assert.equal(room.state.phase, PHASE.LOBBY);
+  });
+
+  it('abandons mid-wave, not only between waves', () => {
+    // The moment a player most wants out is halfway through the wave that is killing
+    // them, which is exactly when the board is busiest.
+    const { room } = makeRoom();
+    seat(room, 'c1');
+    readyAll(room, ['c1']);
+    readyAll(room, ['c1'], 100);
+    // Far enough in that the wave has actually spawned something to abandon.
+    for (let t = 200; t <= 2000; t += TICK_MS) room.tick(t, TICK_MS);
+    assert.equal(room.state.phase, PHASE.WAVE);
+    assert.ok(room.state.enemies.length > 0, 'nothing on the board to abandon');
+
+    room.enqueue('c1', { type: 'playAgain' });
+
+    assert.equal(room.state.phase, PHASE.LOBBY);
+    assert.equal(room.state.enemies.length, 0, 'a reset must clear the board');
+  });
+
+  it('leaves a lobby alone', () => {
+    // Nothing to abandon, and resetting would silently clear anything already built.
+    const { room } = makeRoom();
+    seat(room, 'c1');
+    assert.equal(room.state.phase, PHASE.LOBBY);
+
+    room.enqueue('c1', { type: 'playAgain' });
+
+    assert.equal(room.state.phase, PHASE.LOBBY);
+  });
+
+  it('refuses a restart from someone with no seat', () => {
+    // Spectators watch. Letting one end the game for four players would be griefing with
+    // a single click.
     const { room } = makeRoom();
     seat(room, 'c1');
     readyAll(room, ['c1']);
 
-    room.enqueue('c1', { type: 'playAgain' });
+    room.enqueue('nobody', { type: 'playAgain' });
 
     assert.equal(room.state.phase, PHASE.BUILD);
   });

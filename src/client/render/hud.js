@@ -149,6 +149,7 @@ function buildHud(doc) {
   const waitingOn = el('waiting-on');
   const eventLog = el('event-log');
   const readyButton = /** @type {HTMLButtonElement} */ (el('ready'));
+  const restartButton = /** @type {HTMLButtonElement} */ (el('restart'));
   const shopButtons = el('shop-buttons');
   const shopHint = el('shop-hint');
   const shopStats = el('shop-stats');
@@ -160,6 +161,7 @@ function buildHud(doc) {
   return {
     elements: {
       readyButton,
+      restartButton,
       shopButtons,
       overlayAction,
       copyLink: el('copy-link'),
@@ -311,6 +313,22 @@ function buildHud(doc) {
       readyButton.setAttribute('aria-pressed', String(ready));
       readyButton.disabled = !enabled;
       readyButton.textContent = label;
+    },
+
+    /**
+     * Show the Restart button in its resting or armed state.
+     *
+     * The armed wording asks the question outright rather than relying on the colour
+     * change alone — "Restart?" is the only thing that says a second click is final.
+     *
+     * @param {boolean} armed
+     * @param {boolean} enabled
+     * @returns {void}
+     */
+    setRestart(armed, enabled) {
+      restartButton.dataset.armed = String(armed);
+      restartButton.disabled = !enabled;
+      restartButton.textContent = armed ? 'Restart? Click again' : 'Restart';
     },
 
     /**

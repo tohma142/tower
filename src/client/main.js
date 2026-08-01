@@ -20,6 +20,7 @@ import { isBuildable } from '../shared/map.js';
 
 import { log, setLogLevel } from './log.js';
 import { createConnection } from './net.js';
+import { createConfirm } from './render/confirm.js';
 import { drawBoard, drawEntities, drawGhost, drawTowerRanges } from './render/draw.js';
 import { createHud, describeEvent } from './render/hud.js';
 import { sampleAt } from './render/interpolate.js';
@@ -43,6 +44,9 @@ ctx.imageSmoothingEnabled = false;
 const sprites = compileAll(RENDER_SCALE);
 const hud = createHud(document);
 const panel = createUnitPanel(document);
+
+/** Two clicks to restart. See `confirm.js` for why there is no timer. */
+const restartConfirm = createConfirm();
 
 /** The room code from `/r/CODE`, or null on `/` meaning "make me one". */
 const roomFromUrl = /^\/r\/([A-Z0-9]+)\/?$/.exec(location.pathname)?.[1] ?? null;
@@ -186,6 +190,15 @@ canvas.addEventListener('click', (event) => {
 hud.elements.readyButton.addEventListener('click', () => {
   ui.ready = !ui.ready;
   connection.send({ type: 'ready', value: ui.ready });
+});
+
+hud.elements.restartButton.addEventListener('click', () => {
+  // Two clicks, because this ends the run for everyone in the room and there is no undo.
+  // The armed state expires on its own — `updateRestartButton` reads it every frame — so
+  // there is no timer here to leak or to cancel.
+  if (restartConfirm.click(performance.now()) === 'confirmed') {
+    connection.send({ type: 'playAgain' });
+  }
 });
 
 hud.elements.copyLink.addEventListener('click', async () => {
@@ -358,6 +371,25 @@ function updateReadyButton(view) {
 }
 
 /**
+ * Draw the Restart button, including letting an armed confirmation lapse.
+ *
+ * Disabled in the lobby: there is no run to abandon, and offering it there would suggest
+ * it clears what you have built, which it does not.
+ *
+ * @param {import('../game/state.js').Snapshot} view
+ * @returns {void}
+ */
+function updateRestartButton(view) {
+  const enabled = connection.role() === 'player' && view.phase !== PHASE.LOBBY;
+
+  // A confirmation that is no longer offerable must not stay armed behind a disabled
+  // button, waiting to fire on the next click whenever that turns out to be.
+  if (!enabled) restartConfirm.reset();
+
+  hud.setRestart(restartConfirm.isArmed(performance.now()), enabled);
+}
+
+/**
  * @param {import('../game/state.js').Snapshot} view
  * @returns {void}
  */
@@ -425,6 +457,7 @@ function frame() {
   hud.updateVitals(view, connection.playerId());
   updateSelection(view);
   updateReadyButton(view);
+  updateRestartButton(view);
   updateOverlay(view);
 
   // The roster shows per-player fish and ready state, which change every tick — but

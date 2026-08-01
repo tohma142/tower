@@ -369,6 +369,35 @@ describe('resetToLobby', () => {
     assert.deepEqual(state.towers, []);
     assert.equal(state.outcome, null);
   });
+
+  it('restores the numbers the lobby shows before the next game', () => {
+    // The lobby reports fish and iceberg HP, and `startGame` is what actually resets
+    // them — so without this the lobby sits displaying the state of the run that was
+    // just abandoned. A player who restarts after spending reads their reduced fish as
+    // a handicap they have to play around.
+    const state = makeGame({ players: ['a', 'b'] });
+    state.icebergHp = 2;
+    for (const player of state.players.values()) player.fish = 7;
+
+    resetToLobby(state);
+
+    assert.equal(state.icebergHp, ICEBERG_HP);
+    for (const player of state.players.values()) {
+      assert.equal(player.fish, STARTING_FISH, `${player.id} kept spent-down fish`);
+    }
+  });
+
+  it('shows a full iceberg after a defeat, not the zero it ended on', () => {
+    const state = makeGame({ players: ['a'] });
+    state.icebergHp = 2;
+    startWave(state);
+    runUntil(state, (s) => s.phase === PHASE.GAME_OVER, { describe: 'defeat' });
+    assert.equal(state.icebergHp, 0);
+
+    resetToLobby(state);
+
+    assert.equal(state.icebergHp, ICEBERG_HP);
+  });
 });
 
 describe('drainEvents', () => {

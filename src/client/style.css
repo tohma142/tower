@@ -229,6 +229,26 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   border-color: var(--text);
 }
 
+/* Set apart below the ready button, and quiet until you touch it: this ends the run for
+   everyone in the room, so it should never be the thing your eye lands on first. */
+#restart {
+  width: 100%;
+  margin-top: 0.6rem;
+  padding: 0.35rem;
+  font-size: 0.78rem;
+  color: var(--dim);
+  background: transparent;
+}
+
+#restart:hover:not(:disabled) { color: var(--bright); background: #1e1e1e; }
+
+/* Armed. The one moment this button is allowed to shout. */
+#restart[data-armed='true'] {
+  color: var(--bright);
+  border-color: var(--text);
+  background: #2a2a2a;
+}
+
 #log { flex: 1; min-height: 6rem; }
 
 #event-log {
