@@ -66,7 +66,7 @@ HOST=0.0.0.0 npm start
 | --- | --- |
 | `npm start` | Run the server |
 | `npm run dev` | Run with `--watch`, restarting on file changes |
-| `npm test` | Full test suite (`node:test`) |
+| `npm test` | Full test suite (`node:test`), under a watchdog — see below |
 | `npm test -- <pattern>` | A single file or pattern — use this while iterating |
 | `npm run test:coverage` | Test suite with a coverage report (advisory, never a gate) |
 | `npm run lint` | ESLint |
@@ -75,6 +75,18 @@ HOST=0.0.0.0 npm start
 | `npm run check` | lint + typecheck + test — run before opening a PR |
 
 `npm run check` must pass locally before you push.
+
+> **Hanging tests.** `npm test` runs through `scripts/test.js`, which enforces a
+> wall-clock budget (120s by default, `TEST_BUDGET_MS` to override) and kills the whole
+> process group if the suite exceeds it. The suite itself takes about 4 seconds, so this
+> only ever fires on a runaway.
+>
+> This exists because `--test-timeout` alone is not enough: it is a timer *inside* the
+> runner, and a synchronous hang — `while (true) {}`, or a loop waiting on a condition
+> that never changes — never yields the thread for that timer to fire. Both are used, and
+> they catch different things. An async hang trips `--test-timeout` and gets named; a
+> synchronous one trips the watchdog, which cannot name it, so run the suites
+> individually to find the culprit.
 
 > **Version note:** CI pins Node 20, the floor of the supported range, while local
 > machines may be far ahead. If something works locally and fails in CI, suspect a
