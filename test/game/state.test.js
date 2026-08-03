@@ -22,6 +22,7 @@ import {
   STARTING_FISH,
   TICK_MS,
   TOTAL_WAVES,
+  WAVES,
   hpScaleFor,
 } from '../../src/shared/constants.js';
 import { isBuildable } from '../../src/shared/map.js';
@@ -218,17 +219,22 @@ describe('tick — spawning', () => {
   });
 
   it('spawns on the schedule, not all at once', () => {
+    // Timings are read from the wave table rather than written in, so retuning wave 1's
+    // pacing cannot fail a test about whether spawning is staggered at all.
+    const [group] = WAVES[0];
+    const ticksTo = (/** @type {number} */ ms) => Math.ceil(ms / TICK_MS);
+
     const state = makeGame();
     startWave(state);
 
     tick(state, TICK_MS);
     assert.equal(state.enemies.length, 1, 'first walker at 0ms');
 
-    runTicks(state, 10); // 500ms — still before the 900ms second spawn
-    assert.equal(state.enemies.length, 1);
+    runTicks(state, ticksTo(group.spacingMs * 0.5) - 1);
+    assert.equal(state.enemies.length, 1, 'a second walker arrived before its interval');
 
-    runTicks(state, 10); // past 900ms
-    assert.equal(state.enemies.length, 2);
+    runTicks(state, ticksTo(group.spacingMs * 0.6) + 1);
+    assert.equal(state.enemies.length, 2, 'the second walker never arrived');
   });
 
   it('eventually spawns the whole wave exactly once', () => {

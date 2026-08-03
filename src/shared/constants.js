@@ -404,7 +404,16 @@ export const ENEMY_TYPE_IDS = Object.freeze(Object.keys(ENEMY_TYPES));
  */
 export const WAVES = Object.freeze([
   // 1 — teach the loop: a thin line of walkers.
-  Object.freeze([{ type: 'walker', count: 6, spacingMs: 900, delayMs: 0 }]),
+  //
+  // Spaced at 1800ms rather than 900 so the opening budget can actually hold it. A solo
+  // player starts with exactly three Pistols' worth of fish, and three Pistols are 18
+  // damage per second against 300 hit points of walker — at 900ms they killed four of
+  // six however well they were placed, so wave 1 was lost before it was played.
+  //
+  // Spacing rather than a smaller count: the wave keeps all six walkers and its job of
+  // teaching the loop, and only the pace changes. Measured threshold is 1600ms; 1800
+  // leaves margin so a small change elsewhere does not silently push it back over.
+  Object.freeze([{ type: 'walker', count: 6, spacingMs: 1800, delayMs: 0 }]),
   // 2
   Object.freeze([{ type: 'walker', count: 10, spacingMs: 800, delayMs: 0 }]),
   // 3 — introduce runners.

@@ -23,7 +23,14 @@ import {
   startWave,
   tick,
 } from '../../src/game/state.js';
-import { ICEBERG_HP, PHASE, TICK_MS, TOTAL_WAVES, hpScaleFor } from '../../src/shared/constants.js';
+import {
+  ICEBERG_HP,
+  PHASE,
+  TICK_MS,
+  TOTAL_WAVES,
+  TOWER_TYPES,
+  hpScaleFor,
+} from '../../src/shared/constants.js';
 import { PATH_LENGTH, isBuildable, positionAt } from '../../src/shared/map.js';
 
 /**
@@ -288,5 +295,73 @@ describe('the wave-clear bonus', () => {
     const cleared = drainEvents(state).find((e) => e.kind === 'waveCleared');
     assert.ok(cleared !== undefined);
     assert.ok(cleared.bonus > 0);
+  });
+});
+
+describe('the opening is survivable', () => {
+  it('lets one player clear wave 1 with the three Pistols they can afford', () => {
+    // The opening is not a choice: STARTING_FISH buys exactly three Pistols, so this is
+    // what a solo player has on wave 1. Three Pistols are 18 damage per second against
+    // six 50-hit-point walkers, and at the original 900ms spacing they killed four of
+    // six *however well they were placed* — wave 1 was lost before it was played.
+    //
+    // Placement is stated because it decides the result: these are the three
+    // highest-coverage tiles, i.e. the reference player's judgement. A left-to-right
+    // scan still leaks, and that is intended — where you build is meant to matter.
+    const state = createGameState();
+    addPlayer(state, 'p1', 'Solo');
+    startGame(state);
+
+    const budget = state.players.get('p1')?.fish ?? 0;
+    const pistol = TOWER_TYPES.pistol;
+    assert.equal(
+      Math.floor(budget / pistol.cost),
+      3,
+      'the opening budget is no longer three Pistols — this test is measuring the wrong thing',
+    );
+
+    for (const tile of tilesByCoverage(pistol.range).slice(0, 3)) {
+      const placed = applyCommand(state, 'p1', {
+        type: 'place',
+        tileX: tile.x,
+        tileY: tile.y,
+        towerType: 'pistol',
+      });
+      assert.equal(placed.ok, true, `could not place on (${tile.x},${tile.y})`);
+    }
+    assert.equal(state.towers.length, 3, 'the build under test was not actually made');
+    assert.equal(state.players.get('p1')?.fish, budget - 3 * pistol.cost);
+
+    startWave(state);
+    for (let i = 0; i < 40_000 && state.phase === PHASE.WAVE; i += 1) tick(state, TICK_MS);
+
+    assert.equal(state.phase, PHASE.BUILD, 'wave 1 never ended');
+    assert.equal(state.leaks, 0, `wave 1 leaked ${state.leaks} of 6 walkers past three Pistols`);
+    assert.equal(state.icebergHp, ICEBERG_HP, 'the iceberg took damage on the teaching wave');
+  });
+
+  it('still punishes a solo opening built without regard to the path', () => {
+    // The other half of the contract. Wave 1 being clearable must not mean it clears
+    // itself: three Pistols dropped on the first buildable tiles by a left-to-right scan
+    // should still leak, or placement has stopped being a decision.
+    const state = createGameState();
+    addPlayer(state, 'p1', 'Solo');
+    startGame(state);
+
+    let placed = 0;
+    for (let x = 0; x < 20 && placed < 3; x += 1) {
+      for (let y = 0; y < 12 && placed < 3; y += 1) {
+        if (!isBuildable(x, y)) continue;
+        if (applyCommand(state, 'p1', { type: 'place', tileX: x, tileY: y, towerType: 'pistol' }).ok) {
+          placed += 1;
+        }
+      }
+    }
+    assert.equal(placed, 3, 'the careless build under test was not actually made');
+
+    startWave(state);
+    for (let i = 0; i < 40_000 && state.phase === PHASE.WAVE; i += 1) tick(state, TICK_MS);
+
+    assert.ok(state.leaks > 0, 'a build ignoring the path held wave 1 — placement stopped mattering');
   });
 });
