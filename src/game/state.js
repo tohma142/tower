@@ -34,6 +34,9 @@ import { buildSpawnSchedule, waveEnemyCount } from './waves.js';
  * @property {boolean} ready
  * @property {boolean} connected Disconnected players keep their towers and fish for the
  *   grace period but are excluded from the ready gate, or the game deadlocks.
+ * @property {boolean} idle Connected but doing nothing for long enough that the ready
+ *   gate has stopped waiting on them. Written by the room, which owns the clock; the
+ *   simulation only reads it, so it stays free of time it did not receive as an argument.
  */
 
 /**
@@ -119,11 +122,12 @@ export function addPlayer(state, id, name) {
   const existing = state.players.get(id);
   if (existing !== undefined) {
     existing.connected = true;
+    existing.idle = false;
     return existing;
   }
 
   /** @type {Player} */
-  const player = { id, name, fish: STARTING_FISH, ready: false, connected: true };
+  const player = { id, name, fish: STARTING_FISH, ready: false, connected: true, idle: false };
   state.players.set(id, player);
   return player;
 }
@@ -157,34 +161,53 @@ export function setConnected(state, id, connected) {
 
   player.connected = connected;
   if (!connected) player.ready = false;
+  // Reconnecting is itself activity; a returning player must not arrive pre-idled.
+  if (connected) player.idle = false;
 }
 
 /**
  * Whether the ready gate is satisfied.
  *
- * Requires at least one connected player, so an empty room cannot start a wave, and
- * every connected player to be ready. Disconnected players do not count either way.
+ * Two conditions, and the split between them is the whole design:
+ *
+ * - **Nobody is blocking.** A connected player who has not readied holds the gate shut,
+ *   unless they have idled out — the point of the timeout is that absence stops counting
+ *   as a veto.
+ * - **Somebody wants this.** At least one connected player has actually readied.
+ *
+ * The second condition is what stops an abandoned room from playing itself. Without it,
+ * a room where everyone idled out would find "nobody is blocking" vacuously true and
+ * march through fifteen waves to a loss with no one watching.
+ *
+ * Note that readiness is counted even from a player who has since idled out. Readying is
+ * a decision, not a heartbeat: having said "go", you should not have to keep proving you
+ * are at the keyboard, or a team that all readies and then talks for a minute deadlocks.
  *
  * @param {GameState} state
  * @returns {boolean}
  */
 export function allPlayersReady(state) {
-  let connectedCount = 0;
+  let readyCount = 0;
 
   for (const player of state.players.values()) {
     if (!player.connected) continue;
-    connectedCount += 1;
-    if (!player.ready) return false;
+
+    if (player.ready) {
+      readyCount += 1;
+    } else if (!player.idle) {
+      return false;
+    }
   }
 
-  return connectedCount > 0;
+  return readyCount > 0;
 }
 
 /**
  * Names of connected players who have not readied, for the HUD.
  *
- * The all-players-ready gate has no timeout, so an idle player can stall everyone. The
- * mitigation is making it obvious who the game is waiting on.
+ * Excludes players who have idled out, because the gate is no longer waiting on them —
+ * naming someone the room is not actually blocked on would send the rest of the team
+ * chasing a player who is not the problem.
  *
  * @param {GameState} state
  * @returns {string[]}
@@ -192,7 +215,7 @@ export function allPlayersReady(state) {
 export function playersNotReady(state) {
   const waiting = [];
   for (const player of state.players.values()) {
-    if (player.connected && !player.ready) waiting.push(player.name);
+    if (player.connected && !player.idle && !player.ready) waiting.push(player.name);
   }
   return waiting;
 }
@@ -394,6 +417,7 @@ function round2(n) {
  * @property {number} fish
  * @property {boolean} ready
  * @property {boolean} connected
+ * @property {boolean} idle The ready gate has stopped waiting on them.
  */
 
 /**
@@ -474,6 +498,7 @@ export function snapshot(state) {
       fish: Math.floor(p.fish),
       ready: p.ready,
       connected: p.connected,
+      idle: p.idle,
     })),
     enemies: state.enemies.map((e) => ({
       id: e.id,
