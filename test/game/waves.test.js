@@ -43,11 +43,16 @@ describe('buildSpawnSchedule', () => {
   });
 
   it('spaces a single group by its declared interval', () => {
-    // Wave 1 is a lone group of walkers 900ms apart.
+    // Read from the table rather than hardcoded, because this is a test of the scheduler
+    // and not of the tuning. It used to assert wave 1's literal 900ms and broke the day
+    // that spacing was retuned — a balance edit should not be able to fail a test about
+    // arithmetic.
+    const [group] = WAVES[0];
     const schedule = buildSpawnSchedule(1);
-    assert.equal(schedule[0].atMs, 0);
-    assert.equal(schedule[1].atMs, 900);
-    assert.equal(schedule[2].atMs, 1800);
+
+    assert.equal(schedule[0].atMs, group.delayMs);
+    assert.equal(schedule[1].atMs, group.delayMs + group.spacingMs);
+    assert.equal(schedule[2].atMs, group.delayMs + group.spacingMs * 2);
   });
 
   it('interleaves overlapping groups by time, not by group', () => {
@@ -90,8 +95,15 @@ describe('waveEnemyCount', () => {
 
 describe('waveSpawnDurationMs', () => {
   it('reports the time of the final spawn', () => {
-    // Wave 1: six walkers at 900ms intervals starting at 0 -> last at 4500ms.
-    assert.equal(waveSpawnDurationMs(1), 4500);
+    // Derived from the table for the same reason as above: the property is "the last
+    // spawn of a single group is (count - 1) intervals after its delay", not any
+    // particular number of milliseconds.
+    const [group] = WAVES[0];
+
+    assert.equal(
+      waveSpawnDurationMs(1),
+      group.delayMs + group.spacingMs * (group.count - 1),
+    );
   });
 
   it('is never negative', () => {
