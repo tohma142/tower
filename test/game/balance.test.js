@@ -217,6 +217,40 @@ describe('the Fisher is a trade, not a free win', () => {
   });
 });
 
+describe('the Bomber is worth its price', () => {
+  // The reference build above buys sniper-then-pistol and never touches a Bomber, so
+  // every assertion in this file was blind to it — a splash change could halve or double
+  // the unit and the suite would stay green. These two close that gap.
+  const bomberFirst = ['bomber', 'sniper', 'pistol'];
+
+  for (const players of [1, 4]) {
+    it(`a ${players}-player Bomber-led build clears all ${TOTAL_WAVES} waves`, () => {
+      // At the original splash radius of 1 this lost on wave 3 at both team sizes: the
+      // Bomber cost three times a Pistol and caught 1.69 enemies a blast. If a future
+      // tuning edit puts it back there, the unit is unbuyable again and this says so.
+      const result = playGame({ players, buyOrder: bomberFirst });
+
+      assert.equal(
+        result.outcome,
+        'win',
+        `${players}p lost on wave ${result.wave} leading with Bombers`,
+      );
+    });
+  }
+
+  it('does not make splash the obviously correct opening', () => {
+    // The other bound. Leading with Bombers should be viable, not free — if it finishes
+    // in better shape than the sniper build it has stopped being a trade-off.
+    const bombers = playGame({ players: 1, buyOrder: bomberFirst });
+    const snipers = playGame({ players: 1 });
+
+    assert.ok(
+      bombers.icebergHp <= snipers.icebergHp,
+      `Bombers finished on ${bombers.icebergHp} against ${snipers.icebergHp} for snipers`,
+    );
+  });
+});
+
 describe('team size does not decide the game', () => {
   it('leaves every team size in a comparable state at the end', () => {
     // Income is shared and wallets are per-player, so purchasing power scales linearly

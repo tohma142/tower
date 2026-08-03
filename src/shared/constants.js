@@ -299,6 +299,26 @@ export const TOWER_TYPES = Object.freeze({
     projectileSpeed: 30,
     income: 0,
   }),
+  /**
+   * Splash is 1.75 tiles, not 1. At 1 the Bomber was barely playable: a bomber-led build
+   * lost on wave 3 at every team size, and each blast caught 1.88 enemies — barely more
+   * than a single-target round, for three times the price of a Pistol.
+   *
+   * 1.75 is the measured threshold, not a round number. Under the reference build's
+   * placement, 1.5 still loses on wave 3; 1.75 clears all fifteen waves finishing on 5 of
+   * 25 solo and 1 of 25 at four players, which is as tight as the sniper build. Above it
+   * the unit stops being a trade: 2.0 finishes on 11, and 2.5 on 17, which is the same
+   * "nothing is at stake" the iceberg was dropped to 25 to fix.
+   *
+   * That threshold moves with placement, which is worth knowing before retuning it. A
+   * harness ranking tiles by the Bomber's own range of 4 rather than the reference range
+   * of 3 found 1.5 sufficient. The number here is the conservative one.
+   *
+   * Splash does full damage to everything in the radius with no falloff, so this is a
+   * straight power increase and the radius is the only dial. Note the path doubles back
+   * on itself, and at this radius a blast on a corner can catch enemies on the other
+   * leg — intended, and part of why placement matters.
+   */
   bomber: Object.freeze({
     id: 'bomber',
     name: 'Bomber',
@@ -306,7 +326,7 @@ export const TOWER_TYPES = Object.freeze({
     range: 4,
     damage: 6,
     fireRate: 0.7,
-    splashRadius: 1,
+    splashRadius: 1.75,
     projectileSpeed: 8,
     income: 0,
   }),
