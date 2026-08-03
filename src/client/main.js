@@ -201,7 +201,9 @@ hud.elements.copyLink.addEventListener('click', async () => {
   }
 });
 
-// Keyboard shortcuts: 1..3 pick a penguin, Escape clears, Space readies.
+// Keyboard shortcuts: a number key per penguin type, Escape clears, Space readies. The
+// range follows TOWER_TYPES rather than being fixed, so adding a penguin needs no edit
+// here — the comment said 1..3 for a while after the Fisher made it 1..4.
 window.addEventListener('keydown', (event) => {
   if (event.repeat) return;
 
