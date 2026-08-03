@@ -62,7 +62,7 @@ export default [
 
   // Node-side code: server, game simulation, entry point, tooling.
   {
-    files: ['src/index.js', 'src/config.js', 'src/logger.js', 'src/server/**/*.js', 'src/game/**/*.js', 'test/**/*.js', 'eslint.config.js'],
+    files: ['src/index.js', 'src/config.js', 'src/logger.js', 'src/server/**/*.js', 'src/game/**/*.js', 'test/**/*.js', 'scripts/**/*.js', 'eslint.config.js'],
     languageOptions: {
       globals: { ...globals.node },
     },
