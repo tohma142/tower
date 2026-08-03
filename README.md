@@ -10,10 +10,11 @@ somebody is connected to it, and then it is gone.
 ## Status
 
 Playable. Up to four people share a board across fifteen waves, with spectators, seat
-reconnection, and a tuned difficulty curve.
+reconnection, and a tuned difficulty curve. Penguins can be upgraded to level 3 and sold
+back for 70% of everything sunk into them.
 
-Not built, and deliberately so: tower upgrades and selling, flying or armoured enemies,
-a boss, sound, more than one map, difficulty selection, and any form of persistence.
+Not built, and deliberately so: flying or armoured enemies, a boss, sound, more than one
+map, difficulty selection, and any form of persistence.
 
 ## How to play
 
@@ -31,9 +32,17 @@ own strength, so leaking a Polar Bear costs five times what an Arctic Fox does.
 | --- | --- | --- | --- | --- |
 | **Pistol** | 50 | 3 | 2 | 3.0/s |
 | **Sniper** | 120 | 7 | 12 | 0.5/s |
-| **Bomber** | 150 | 4 | 6 splash | 0.7/s |
+| **Bomber** | 150 | 4 | 6 splash r1 | 0.7/s |
+| **Fisher** | 100 | — | — | pays every player 20 fish per wave cleared |
 
-Keyboard: `1`–`3` pick a penguin, `Esc` clears the selection, `Space` readies.
+The Fisher is the one that does not shoot. It is a real trade, not free money: spending
+the opening budget on economy at 25 iceberg hit points loses the game on wave 2.
+
+Click a placed penguin to see its stats, upgrade it (to level 3, output scaling 1 →
+1.75 → 3), or sell it back for 70% of everything sunk into it — purchase and upgrades
+both.
+
+Keyboard: `1`–`4` pick a penguin, `Esc` clears the selection, `Space` readies.
 
 Placement is most of the game. Tiles beside a corner cover far more path than tiles
 beside a straight, and the difference decides runs — a build that scans left-to-right
